@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fabcd2875a9b4ea45954bb50d9c8eafb, type: 3}
+  m_Name: MobileLite
+  m_EditorClassIdentifier: Assembly-CSharp::HoloCard.HoloCardPreset
+  parallaxDepth: 0.065
+  parallaxSteps: 16
+  parallaxChroma: 0
+  depthShade: 0.38
+  holoIntensity: 0.6
+  holoScale: 9
+  holoAngle: 28
+  holoSpread: 2.6
+  holoContrast: 1.7
+  holoBlend: 0.42
+  holoSpeed: 0.05
+  holoGrazing: 0.8
+  sparkleIntensity: 0.45
+  sparkleDensity: 80
+  sparklePower: 45
+  sparkleDepth: 0.35
+  glareIntensity: 0.32
+  glareSize: 0.7
+  glarePower: 2.2
+  sheenIntensity: 0.08
+  rimIntensity: 0.25
+  rimPower: 2.5
+  bevel: 0.18
+  bevelWidth: 0.035

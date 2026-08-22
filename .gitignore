@@ -112,3 +112,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Holo Card 예시용 실제 카드 스캔 (The Pokemon Company 저작물) — 로컬 실험 전용, 커밋 금지
+Assets/HoloCard/Textures/Pokemon/
+Assets/HoloCard/Textures/Pokemon.meta

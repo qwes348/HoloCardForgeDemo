@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: HoloCard_Charizard VSTAR
+  m_Shader: {fileID: 4800000, guid: 8d23b4795bb3642478a7b2b0c312c75d, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords:
+  - _GAMMABLEND_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: dcc9a65cb4fb5ce46bb15da1153c2f13, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DepthMap:
+        m_Texture: {fileID: 2800000, guid: 4bdbc779e6ba6324d8150c7579eff811, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FoilMask:
+        m_Texture: {fileID: 2800000, guid: 6801f8c161337f749b2addee78b16a2a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Bevel: 0.08
+    - _BevelWidth: 0.035
+    - _DepthShade: 0.38
+    - _EnvIntensity: 0
+    - _EnvRoughness: 0.15
+    - _GammaBlend: 1
+    - _GlareIntensity: 0.1
+    - _GlarePower: 3.2
+    - _GlareSize: 0.45
+    - _HoloAngle: 28
+    - _HoloBlend: 0.3
+    - _HoloContrast: 2
+    - _HoloGrazing: 0.8
+    - _HoloIntensity: 0.3
+    - _HoloScale: 13
+    - _HoloSpeed: 0.05
+    - _HoloSpread: 2.6
+    - _ParallaxChroma: 0.015
+    - _ParallaxDepth: 0.015
+    - _ParallaxSteps: 32
+    - _RimIntensity: 0.18
+    - _RimPower: 2.5
+    - _SheenIntensity: 0.06
+    - _SparkleDensity: 210
+    - _SparkleDepth: 0.9
+    - _SparkleIntensity: 1.35
+    - _SparklePower: 55
+    - _Tilt: 0
+    - _ViewBlend: 0.35
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _PointerUV: {r: 0.5, g: 0.5, b: 0, a: 0}
+    - _RimColor: {r: 0.6, g: 0.8, b: 1, a: 1}
+    - _VirtualView: {r: 0, g: 0, b: 1, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

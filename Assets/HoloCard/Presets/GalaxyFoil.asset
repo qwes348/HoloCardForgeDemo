@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fabcd2875a9b4ea45954bb50d9c8eafb, type: 3}
+  m_Name: GalaxyFoil
+  m_EditorClassIdentifier: Assembly-CSharp::HoloCard.HoloCardPreset
+  parallaxDepth: 0.075
+  parallaxSteps: 32
+  parallaxChroma: 0.09
+  depthShade: 0.38
+  holoIntensity: 0.55
+  holoScale: 4.5
+  holoAngle: 96
+  holoSpread: 1.4
+  holoContrast: 2.4
+  holoBlend: 0.35
+  holoSpeed: 0.05
+  holoGrazing: 0.8
+  sparkleIntensity: 1.8
+  sparkleDensity: 260
+  sparklePower: 45
+  sparkleDepth: 0.35
+  glareIntensity: 0.5
+  glareSize: 0.7
+  glarePower: 2.2
+  sheenIntensity: 0.08
+  rimIntensity: 0.5
+  rimPower: 2.5
+  bevel: 0.18
+  bevelWidth: 0.035

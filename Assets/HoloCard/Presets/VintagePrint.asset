@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fabcd2875a9b4ea45954bb50d9c8eafb, type: 3}
+  m_Name: VintagePrint
+  m_EditorClassIdentifier: Assembly-CSharp::HoloCard.HoloCardPreset
+  parallaxDepth: 0.06
+  parallaxSteps: 32
+  parallaxChroma: 0.06
+  depthShade: 0.38
+  holoIntensity: 0.95
+  holoScale: 11
+  holoAngle: 28
+  holoSpread: 2.6
+  holoContrast: 1.8
+  holoBlend: 0.55
+  holoSpeed: 0.05
+  holoGrazing: 0.8
+  sparkleIntensity: 0.5
+  sparkleDensity: 160
+  sparklePower: 45
+  sparkleDepth: 0.35
+  glareIntensity: 0.12
+  glareSize: 0.5
+  glarePower: 3
+  sheenIntensity: 0.05
+  rimIntensity: 0.15
+  rimPower: 2.5
+  bevel: 0.1
+  bevelWidth: 0.035
