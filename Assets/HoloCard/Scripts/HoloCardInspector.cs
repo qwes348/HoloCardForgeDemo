@@ -35,8 +35,8 @@ namespace HoloCard
         public float transitionTime = 0.45f;
 
         [Header("Focused Card")]
-        [Tooltip("확대 상태의 최대 기울기(도). 평소보다 크게 준다.")]
-        public float focusedTiltAngle = 22f;
+        [Tooltip("확대 상태의 최대 기울기(도). 크게 주면 POM 이 그레이징 각에서 늘어난다.")]
+        public float focusedTiltAngle = 14f;
         [Tooltip("확대 상태에서 카드 밖으로 나가도 포인터를 따라간다.")]
         public bool trackPointerAnywhere = true;
 
@@ -78,6 +78,36 @@ namespace HoloCard
         public int FocusedIndex => _focused;
         public bool HasFocus => _focused >= 0;
 
+        /// <summary>어떤 카드가 확대됐는지 알린다. 해제되면 null.</summary>
+        public event System.Action<HoloCardController> FocusChanged;
+
+        /// <summary>등록된 카드 목록. 순서는 화면 배치를 따른다(위 줄부터, 줄 안에서는 왼쪽부터).</summary>
+        public int CardCount => _entries.Count;
+        public HoloCardController CardAt(int index) =>
+            index >= 0 && index < _entries.Count ? _entries[index].controller : null;
+
+        /// <summary>
+        /// 카드의 원래 자리를 갱신한다. 연출이 카드를 옮겼을 때 호출해야
+        /// 확대 해제 시 새 자리로 돌아간다.
+        /// </summary>
+        public void SetHome(HoloCardController card, Vector3 localPosition, Quaternion localRotation)
+        {
+            foreach (Entry e in _entries)
+            {
+                if (e.controller != card) continue;
+                e.homePosition = localPosition;
+                e.homeRotation = localRotation;
+                if (_focused < 0)
+                {
+                    e.toPosition = localPosition;
+                    e.toRotation = localRotation;
+                    e.controller.SetHome(localPosition, localRotation);
+                    e.tr.localPosition = localPosition;
+                }
+                return;
+            }
+        }
+
         void Awake()
         {
             if (targetCamera == null) targetCamera = Camera.main;
@@ -86,6 +116,13 @@ namespace HoloCard
             if (cards.Count == 0)
                 cards.AddRange(FindObjectsByType<HoloCardController>(FindObjectsSortMode.None));
 
+            CollectEntries();
+            SnapAllToHome();
+        }
+
+        /// <summary>cards 목록에서 항목을 만들고 화면 배치 순으로 정렬한다.</summary>
+        void CollectEntries()
+        {
             foreach (var c in cards)
             {
                 if (c == null) continue;
@@ -113,8 +150,6 @@ namespace HoloCard
                 if (Mathf.Abs(dy) > rowTolerance) return dy > 0f ? 1 : -1;
                 return a.tr.position.x.CompareTo(b.tr.position.x);
             });
-
-            SnapAllToHome();
         }
 
         void Update()
@@ -209,6 +244,19 @@ namespace HoloCard
                     e.controller.trackOutsideBounds = e.originalTrackOutside;
                 }
             }
+
+            FocusChanged?.Invoke(_focused >= 0 ? _entries[_focused].controller : null);
+        }
+
+        /// <summary>씬이 만들어진 뒤 카드를 넣거나 뺐을 때 다시 수집한다.</summary>
+        public void Rescan()
+        {
+            cards.Clear();
+            cards.AddRange(FindObjectsByType<HoloCardController>(FindObjectsSortMode.None));
+            _entries.Clear();
+            _focused = -1;
+            CollectEntries();
+            SnapAllToHome();
         }
 
         void ComputeFocusPose(Entry e, out Vector3 position, out Quaternion rotation, out Vector3 scale)

@@ -55,9 +55,9 @@ Material:
     - _HoloScale: 11
     - _HoloSpeed: 0.05
     - _HoloSpread: 2.6
-    - _ParallaxChroma: 0.05
-    - _ParallaxDepth: 0.09
-    - _ParallaxSteps: 32
+    - _ParallaxChroma: 0.035
+    - _ParallaxDepth: 0.045
+    - _ParallaxSteps: 48
     - _RimIntensity: 0.15
     - _RimPower: 2.5
     - _SheenIntensity: 0.05

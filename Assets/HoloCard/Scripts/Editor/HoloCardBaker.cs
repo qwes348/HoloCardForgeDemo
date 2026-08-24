@@ -115,9 +115,9 @@ namespace HoloCard.Editor
                 s.depthSource = DepthSource.SubjectFromBackground;
                 s.blurRadius = 1;          // 스캔 망점만 제거. 형태는 엣지 필터가 다듬는다
                 s.blurIterations = 1;
-                s.edgeRadius = 10;
+                s.edgeRadius = 14;
                 s.edgeStrength = 0.05f;
-                s.depthLayers = 4;         // 배경 / 중경 / 피사체 / 프레임
+                s.depthLayers = 3;         // 배경 / 중경 / 피사체
                 s.contrast = 1.25f;
                 s.blackPoint = 0.10f;
                 s.whitePoint = 0.88f;
@@ -321,10 +321,15 @@ namespace HoloCard.Editor
                 for (int i = 0; i < value.Length; i++)
                     value[i] = Mathf.Round(value[i] * steps) / steps;
 
-                // 계단 경계를 그림의 엣지에 다시 스냅시킨다.
+                // 계단 경계를 그림의 엣지에 스냅시키면서 충분히 둥글린다.
+                //
+                // 여기서 반경을 아끼면 안 된다. 수직 절벽으로 남은 높이맵은 POM 의
+                // 최악 케이스다. 솟은 실루엣이 밀려나면 그 뒤에 가려져 있던 픽셀이
+                // 텍스처에 없으므로 셰이더가 가장자리 색을 길게 늘여 메운다.
+                // 카드를 크게 기울여 볼수록 이 줄무늬가 심해진다.
                 if (s.edgeRadius > 0)
                     value = GuidedFilter(value, luminance, w, h,
-                                         Mathf.Max(2, s.edgeRadius / 3), s.edgeStrength * s.edgeStrength);
+                                         s.edgeRadius, s.edgeStrength * s.edgeStrength);
             }
 
             ApplyFlatRegions(value, w, h, s);

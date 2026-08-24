@@ -222,14 +222,14 @@ namespace HoloCard.Editor
             Debug.Log($"[Holo Card] 갤러리 씬 생성 완료 ({sets.Count}장): {path}");
         }
 
-        struct CardSet
+        public struct CardSet
         {
             public string name;
             public Texture2D art, depth, foil;
             public float aspect;
         }
 
-        static System.Collections.Generic.List<CardSet> FindCardSets()
+        public static System.Collections.Generic.List<CardSet> FindCardSets()
         {
             var result = new System.Collections.Generic.List<CardSet>();
             string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { TexturesDir });
@@ -264,7 +264,7 @@ namespace HoloCard.Editor
             return result;
         }
 
-        static Texture2D LoadAny(string dir, string baseName)
+        public static Texture2D LoadAny(string dir, string baseName)
         {
             foreach (string ext in new[] { ".png", ".jpg", ".jpeg", ".tga", ".psd" })
             {
@@ -425,7 +425,8 @@ namespace HoloCard.Editor
             mesh.Rebuild();
 
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterials = new[] { cardMat, bodyMat };
+            // 서브메시 0 = 앞면, 1 = 뒷면, 2 = 옆면. 뒷면/옆면은 같은 재질을 쓴다.
+            renderer.sharedMaterials = new[] { cardMat, bodyMat, bodyMat };
             renderer.shadowCastingMode = ShadowCastingMode.On;
             renderer.receiveShadows = true;
 

@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: HoloCard_Charizard
+  m_Name: PackWrap
   m_Shader: {fileID: 4800000, guid: 8d23b4795bb3642478a7b2b0c312c75d, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -25,45 +25,45 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: 29ecd12c2fb438b47a045275dc3e00c5, type: 3}
+        m_Texture: {fileID: 2800000, guid: cd88ce99d1c00af4eb8173aab3754208, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DepthMap:
-        m_Texture: {fileID: 2800000, guid: 6b0c47e1d1f4e9f47a2fd890d893fec6, type: 3}
+        m_Texture: {fileID: 2800000, guid: 0080a34662c16924bb38ad9a445930c2, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FoilMask:
-        m_Texture: {fileID: 2800000, guid: 41872a39b8766f845a06aed091408367, type: 3}
+        m_Texture: {fileID: 2800000, guid: dc4cce473b3d7ca4483ac330036cbf39, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Bevel: 0.1
+    - _Bevel: 0.18
     - _BevelWidth: 0.035
     - _DepthShade: 0.38
     - _EnvIntensity: 0
     - _EnvRoughness: 0.15
     - _GammaBlend: 1
-    - _GlareIntensity: 0.12
-    - _GlarePower: 3
-    - _GlareSize: 0.5
-    - _HoloAngle: 28
-    - _HoloBlend: 0.55
-    - _HoloContrast: 1.8
+    - _GlareIntensity: 0.5
+    - _GlarePower: 2.2
+    - _GlareSize: 0.7
+    - _HoloAngle: 96
+    - _HoloBlend: 0.35
+    - _HoloContrast: 2.4
     - _HoloGrazing: 0.8
-    - _HoloIntensity: 0.6
-    - _HoloScale: 11
+    - _HoloIntensity: 0.55
+    - _HoloScale: 4.5
     - _HoloSpeed: 0.05
-    - _HoloSpread: 2.6
-    - _ParallaxChroma: 0.035
-    - _ParallaxDepth: 0.045
-    - _ParallaxSteps: 48
-    - _RimIntensity: 0.15
+    - _HoloSpread: 1.4
+    - _ParallaxChroma: 0.09
+    - _ParallaxDepth: 0.075
+    - _ParallaxSteps: 32
+    - _RimIntensity: 0.5
     - _RimPower: 2.5
-    - _SheenIntensity: 0.05
-    - _SparkleDensity: 160
+    - _SheenIntensity: 0.08
+    - _SparkleDensity: 260
     - _SparkleDepth: 0.35
-    - _SparkleIntensity: 0.5
+    - _SparkleIntensity: 1.8
     - _SparklePower: 45
     - _Tilt: 0
     - _ViewBlend: 0.35

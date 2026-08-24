@@ -217,7 +217,9 @@ namespace HoloCard
                     // 이쪽은 액자 안에 그림이 들어 있는 구조라 진짜 디오라마가 성립한다.
                     // 베이커가 프레임·텍스트를 높이 1.0 으로 못 박아 두므로 깊이를 줘도
                     // 인쇄면은 흔들리지 않는다.
-                    parallaxDepth = 0.09f; parallaxChroma = 0.05f;
+                    // 깊이를 올리는 대신 스텝을 올린다. 스텝이 모자라면 교차점을 놓쳐
+                    // 계단 경계에서 픽셀이 길게 늘어난다.
+                    parallaxDepth = 0.045f; parallaxSteps = 48f; parallaxChroma = 0.035f;
                     holoIntensity = 0.60f; holoScale = 11f; holoContrast = 1.8f; holoBlend = 0.55f;
                     sparkleIntensity = 0.5f; sparkleDensity = 160f;
                     glareIntensity = 0.12f; glareSize = 0.5f; glarePower = 3.0f;

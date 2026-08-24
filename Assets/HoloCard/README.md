@@ -23,6 +23,8 @@ Unity 메뉴에서:
 | `Tools > Holo Card > Bake Selected Textures` | 프로젝트 창에서 고른 텍스처들을 기본값으로 일괄 굽기 |
 | `Tools > Holo Card > Download Sample Cards` | 예시 카드 13장을 CDN 에서 받아 굽고 머티리얼까지 생성 |
 | `Tools > Holo Card > Rebake Sample Cards` | 다시 받지 않고 Depth·Foil·프리셋만 재생성 |
+| `Tools > Holo Card > Generate Pack Art` | 팩 포장지와 카드 뒷면 텍스처를 절차적으로 생성 |
+| `Tools > Holo Card > Create Pack Opening Scene` | 카드팩 개봉 연출 씬 |
 
 갤러리 씬에서는 **카드를 클릭하면 크게 볼 수 있다.**
 
@@ -52,6 +54,7 @@ Assets/HoloCard/
   Scripts/
     HoloCardController.cs        마우스·터치·자이로·자동 데모 + 스프링 감쇠
     HoloCardMesh.cs              두께와 둥근 모서리를 가진 카드 메시 생성
+    HoloCardPrism.cs             외곽선 → 두께 있는 프리즘. 카드와 팩이 공유
     HoloCardInspector.cs         클릭하면 카드를 카메라 앞으로 끌어와 확대
     HoloCardPreset.cs            룩 프리셋 ScriptableObject + 프로퍼티 ID 캐시
     Editor/
@@ -64,6 +67,58 @@ Assets/HoloCard/
     Pokemon/                     예시용 실제 카드 스캔 (아래 참고)
   Materials/  Presets/  Prefabs/  Scenes/
 ```
+
+---
+
+## 카드팩 개봉
+
+`Tools > Holo Card > Create Pack Opening Scene` 으로 만드는 가챠 연출 씬이다.
+
+| 단계 | 내용 |
+|---|---|
+| `Idle` | 팩이 공중에 떠서 포인터를 따라 기운다. 클릭하면 시작 |
+| `Tearing` | 상단 스트립이 지그재그 이음매를 따라 찢겨 날아가고 포일 조각이 터진다 |
+| `Dealing` | 카드가 팩 입구에서 한 장씩 **뒷면으로** 솟아 부채꼴로 깔린다 |
+| `Browsing` | 카드를 클릭하면 뒤집히며 확대된다 |
+
+조작: 팩 클릭 → 개봉 / 카드 클릭 → 뒤집기+확대 / `←` `→` 이웃 카드 / `ESC` 해제 /
+`R` 다시 뽑기.
+
+**뒤집기에 별도 코드가 없다.** 카드를 뒷면(`Y 180°`)으로 깔아 두면,
+`HoloCardInspector` 가 확대할 때 카드를 카메라 정면으로 돌리는 그 회전이
+곧 뒤집기가 된다. 한 번 본 카드는 `PackOpeningDirector.OnFocusChanged` 가
+원래 자세를 앞면으로 갱신해서 확대를 풀어도 앞면을 유지한다.
+
+**뽑기 규칙** — `cardsPerPack`(기본 5) 중 `guaranteedRares`(기본 1) 만큼 레어를
+확정으로 넣고 나머지는 일반에서 채운다. 레어는 마지막에 배치해 절정에서 나오게 한다.
+구형 홀로(Base Set)가 일반, 현행 카드(V / VMAX / VSTAR / 레인보우 등)가 레어다.
+
+### 구성
+
+```
+PackOpening/
+  Scripts/
+    CardPack.cs              팩 메시. 본체와 상단 스트립이 같은 지그재그 이음매를 공유
+    PackOpeningDirector.cs   DOTween 시퀀스로 짠 연출
+    HoloCardInfo.cs          카드 이름·등급
+    Editor/
+      PackArtGenerator.cs    팩 포장지·카드 뒷면 텍스처를 절차적으로 생성
+      PackOpeningSetup.cs    씬 원클릭 생성
+  Textures/                  PackWrap / CardBack (+ 각각의 Depth·Foil)
+```
+
+팩 포장지와 카드 뒷면 **모두 홀로 셰이더를 쓴다.** 절차 생성기가 아트와 함께
+Depth·Foil 도 뽑아 주기 때문에, 팩을 기울이면 포장지가 무지개로 일렁이고
+카드 뒷면의 방사형 광선도 각도에 따라 반짝인다.
+
+> 이 부분만 **DOTween 에 의존한다**(프로젝트에 이미 들어 있다). 셰이더 키트
+> 본체(`Shaders/`, `Scripts/`)는 외부 의존성이 없다.
+
+### 실제 카드 디자인을 쓰지 않은 이유
+
+포장지와 카드 뒷면 도안은 저작물이라 그대로 쓸 수 없다. 대신 같은 문법
+(방사형 광선 + 중앙 엠블럼 + 금색 테두리)만 빌린 오리지널 도안을 코드로 그린다.
+`PackArtGenerator` 를 고치면 색·엠블럼·레이아웃을 바꿀 수 있다.
 
 ---
 
