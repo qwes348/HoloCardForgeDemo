@@ -52,10 +52,23 @@ namespace HoloCard.PackOpening
         public float rarePause = 0.45f;
 
         [Header("Fan Layout")]
-        public float fanSpacing = 0.52f;
-        public float fanArcAngle = 13f;
-        public float fanDepthStep = 0.12f;
-        public float fanDrop = 0.03f;
+        [Tooltip("카드 간격. 카드 폭(약 0.64)보다 커야 서로 겹치지 않는다.")]
+        public float fanSpacing = 0.70f;
+        public float fanArcAngle = 11f;
+        [Tooltip("가장자리 카드를 뒤로 미는 정도. 겹칠 때 가운데가 앞에 오게 한다.")]
+        public float fanDepthStep = 0.06f;
+        public float fanDrop = 0.02f;
+
+        [Header("Camera")]
+        [Tooltip("팩을 보여줄 때의 카메라 거리.")]
+        public float packCameraDistance = 2.6f;
+        [Tooltip("카드가 다 깔린 뒤 물러날 거리. 부채꼴이 다 들어와야 한다.")]
+        public float fanCameraDistance = 3.6f;
+        public float cameraDollyTime = 0.8f;
+
+        [Header("Pack Exit")]
+        [Tooltip("카드가 나오는 동안 팩을 뒤로 밀어 카드와 겹치지 않게 한다.")]
+        public float packRecedeZ = 0.75f;
 
         Stage _stage = Stage.Idle;
         readonly List<HoloCardController> _pulled = new List<HoloCardController>();
@@ -167,6 +180,13 @@ namespace HoloCard.PackOpening
                 _sequence.AppendCallback(() => strip.gameObject.SetActive(false));
             }
 
+            // 팩을 뒤로 물린다. 카드는 카메라 쪽(작은 z)에 깔리므로 이렇게 해야
+            // 메시가 겹치지 않는다. 동시에 카메라도 물러나 부채꼴을 담을 준비를 한다.
+            _sequence.Append(pack.transform.DOLocalMoveZ(_packHome.z + packRecedeZ, 0.35f).SetEase(Ease.OutCubic));
+            _sequence.Join(pack.transform.DOLocalMoveY(_packHome.y - 0.12f, 0.35f).SetEase(Ease.OutCubic));
+            if (targetCamera != null)
+                _sequence.Join(targetCamera.transform.DOMoveZ(-fanCameraDistance, cameraDollyTime).SetEase(Ease.InOutCubic));
+
             _sequence.AppendCallback(() => _stage = Stage.Dealing);
             AppendDeal(_sequence);
             _sequence.AppendCallback(EnterBrowsing);
@@ -262,9 +282,10 @@ namespace HoloCard.PackOpening
                 }
             }
 
-            // 팩은 아래로 떨어뜨린다.
-            sequence.Append(pack.transform.DOLocalMoveY(_packHome.y - 2.4f, 0.7f).SetEase(Ease.InCubic));
-            sequence.Join(pack.transform.DOLocalRotate(new Vector3(0f, 0f, -28f), 0.7f, RotateMode.LocalAxisAdd));
+            // 빈 팩은 마지막 카드가 나오자마자 떨어뜨린다. 남겨 두면 부채꼴을 가린다.
+            sequence.Insert(sequence.Duration() - 0.15f,
+                pack.transform.DOLocalMoveY(_packHome.y - 2.6f, 0.65f).SetEase(Ease.InCubic));
+            sequence.Join(pack.transform.DOLocalRotate(new Vector3(0f, 0f, -28f), 0.65f, RotateMode.LocalAxisAdd));
             sequence.AppendCallback(() => pack.gameObject.SetActive(false));
         }
 
@@ -332,6 +353,13 @@ namespace HoloCard.PackOpening
         {
             _sequence?.Kill();
             _stage = Stage.Idle;
+
+            // 카메라를 팩 거리로 되돌린다. 안 그러면 다시 뽑기 때 팩이 멀리 있다.
+            if (targetCamera != null)
+            {
+                Vector3 p = targetCamera.transform.position;
+                targetCamera.transform.position = new Vector3(p.x, p.y, -packCameraDistance);
+            }
 
             if (inspector != null)
             {

@@ -247,6 +247,20 @@ namespace HoloCard.PackOpening.Editor
                     c = Color.Lerp(c, bottom * 1.2f, seam * 0.55f);
                     d = Mathf.Lerp(d, 0.30f, seam * 0.7f);
 
+                    // ── 구김. 팩은 카드와 달리 딱딱한 인쇄물이 아니라 비닐이다.
+                    // 접힌 마루는 빛을 받아 밝고 살짝 솟아 있고, 골은 어둡게 파인다.
+                    float crease = Crease(u, v, out float coarse);
+                    float fold = (coarse - 0.5f) * 2f;          // -1..1, 완만한 굴곡
+
+                    d = Mathf.Clamp01(d + fold * 0.08f + crease * 0.26f);
+
+                    // 마루에서 하이라이트가 터지고 골은 가라앉는다.
+                    c *= 0.90f + fold * 0.09f;
+                    c += new Color(0.62f, 0.70f, 0.88f) * crease * 0.24f;
+
+                    // 접힌 곳은 포일 방향이 틀어져서 반사가 끊긴다.
+                    f = Mathf.Clamp01(f * (1f - crease * 0.45f));
+
                     float n = Hash(x * 0.9f, y * 0.9f) - 0.5f;
                     c += new Color(n, n, n) * 0.02f;
 
@@ -273,6 +287,60 @@ namespace HoloCard.PackOpening.Editor
         {
             float n = Mathf.Sin(x * 127.1f + y * 311.7f) * 43758.5453f;
             return n - Mathf.Floor(n);
+        }
+
+        static float Hash2(int x, int y)
+        {
+            float n = Mathf.Sin(x * 127.1f + y * 311.7f) * 43758.5453f;
+            return n - Mathf.Floor(n);
+        }
+
+        /// <summary>격자 보간 노이즈.</summary>
+        static float ValueNoise(float x, float y)
+        {
+            int xi = Mathf.FloorToInt(x), yi = Mathf.FloorToInt(y);
+            float xf = x - xi, yf = y - yi;
+            float u = xf * xf * (3f - 2f * xf);
+            float v = yf * yf * (3f - 2f * yf);
+
+            float a = Hash2(xi, yi),     b = Hash2(xi + 1, yi);
+            float c = Hash2(xi, yi + 1), d = Hash2(xi + 1, yi + 1);
+            return Mathf.Lerp(Mathf.Lerp(a, b, u), Mathf.Lerp(c, d, u), v);
+        }
+
+        static float Fbm(float x, float y, int octaves)
+        {
+            float sum = 0f, amp = 0.5f, freq = 1f, norm = 0f;
+            for (int i = 0; i < octaves; i++)
+            {
+                sum += ValueNoise(x * freq, y * freq) * amp;
+                norm += amp;
+                amp *= 0.5f;
+                freq *= 2.03f;
+            }
+            return sum / Mathf.Max(norm, 1e-4f);
+        }
+
+        /// <summary>
+        /// 구겨진 비닐의 접힘. fbm 의 등고선을 날카롭게 세워 능선을 만든다.
+        /// 값이 클수록 접힌 마루.
+        /// </summary>
+        static float Crease(float u, float v, out float coarse)
+        {
+            // 노이즈를 세로로 길게 늘인다. 등방성 노이즈를 그대로 쓰면 대리석
+            // 무늬가 되고 비닐로 안 읽힌다. 접힘은 방향이 있어야 한다.
+            coarse = Fbm(u * 3.2f, v * 1.1f, 4);
+            float ridge = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(coarse * 2f - 1f)), 8f);
+
+            // 대각으로 가로지르는 굵은 접힘
+            float diag = Fbm((u + v) * 3.4f, (u - v) * 1.2f, 3);
+            float diagRidge = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(diag * 2f - 1f)), 10f);
+
+            // 잔주름. 지수를 높게 줘서 아주 가느다란 선으로만 남긴다.
+            float fine = Fbm(u * 17f, v * 8f, 2);
+            float fineRidge = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(fine * 2f - 1f)), 12f);
+
+            return Mathf.Clamp01(ridge * 0.55f + diagRidge * 0.35f + fineRidge * 0.18f);
         }
 
         static Texture2D ToTexture(Color[] px, int w, int h)

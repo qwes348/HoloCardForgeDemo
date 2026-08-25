@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fabcd2875a9b4ea45954bb50d9c8eafb, type: 3}
   m_Name: VintagePrint
   m_EditorClassIdentifier: Assembly-CSharp::HoloCard.HoloCardPreset
-  parallaxDepth: 0.06
-  parallaxSteps: 32
-  parallaxChroma: 0.06
+  parallaxDepth: 0.045
+  parallaxSteps: 48
+  parallaxChroma: 0.035
   depthShade: 0.38
-  holoIntensity: 0.95
+  holoIntensity: 0.6
   holoScale: 11
   holoAngle: 28
   holoSpread: 2.6

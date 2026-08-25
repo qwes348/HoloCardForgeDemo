@@ -46,11 +46,11 @@ namespace HoloCard.PackOpening.Editor
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // ── 카메라. 팩 한 개와 5장 부채꼴이 모두 들어오는 거리.
+            // ── 카메라. 팩을 볼 때는 가까이, 카드가 깔리면 감독이 뒤로 물린다.
             var cameraGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
             cameraGo.tag = "MainCamera";
             var cam = cameraGo.GetComponent<Camera>();
-            cam.transform.SetPositionAndRotation(new Vector3(0f, 0f, -2.9f), Quaternion.identity);
+            cam.transform.SetPositionAndRotation(new Vector3(0f, 0f, -2.6f), Quaternion.identity);
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.0045f, 0.005f, 0.009f, 1f);
             cam.fieldOfView = 34f;
@@ -196,6 +196,17 @@ namespace HoloCard.PackOpening.Editor
             fill.intensity = 0.4f;
             fill.shadows = LightShadows.None;
             fillGo.transform.rotation = Quaternion.Euler(-15f, 35f, 0f);
+
+            // 카메라 쪽에서 쏘는 정면 필. 카드 뒷면은 홀로 셰이더가 아니라 Lit 이라
+            // 조명을 받아야 보이는데, 키/필이 전부 뒤·옆에서 와서 뒤집힌 카드가
+            // 새까맣게 나온다. 카드 앞면과 팩 표면은 언릿이라 이 빛에 영향받지 않는다.
+            var frontGo = new GameObject("Front Fill", typeof(Light));
+            var front = frontGo.GetComponent<Light>();
+            front.type = LightType.Directional;
+            front.color = new Color(1f, 0.98f, 0.94f);
+            front.intensity = 1.35f;
+            front.shadows = LightShadows.None;
+            frontGo.transform.rotation = Quaternion.Euler(8f, -6f, 0f);   // 거의 정면, 살짝 위에서
         }
 
         // ── 머티리얼 ─────────────────────────────────────────────────────
@@ -235,11 +246,68 @@ namespace HoloCard.PackOpening.Editor
             return mat;
         }
 
-        static Material CreateWrapMaterial() =>
-            CreateHoloMaterial($"{MaterialsDir}/PackWrap.mat", "PackWrap", HoloCardPreset.Builtin.GalaxyFoil);
+        /// <summary>
+        /// 팩 포장지. 카드가 아니라 비닐 필름이라 값이 다르다.
+        /// 무지개는 은은하게 깔되, 구겨진 마루를 훑고 지나가는 시트 반사와
+        /// 넓은 글레어를 크게 올려야 "코팅된 종이"가 아니라 "필름"으로 읽힌다.
+        /// 패럴랙스는 구김이 실제로 파이도록 조금 준다.
+        /// </summary>
+        static Material CreateWrapMaterial()
+        {
+            Material mat = CreateHoloMaterial($"{MaterialsDir}/PackWrap.mat", "PackWrap",
+                                              HoloCardPreset.Builtin.StandardHolo);
+            if (mat == null) return null;
 
-        static Material CreateCardBackMaterial() =>
-            CreateHoloMaterial($"{MaterialsDir}/CardBack.mat", "CardBack", HoloCardPreset.Builtin.StandardHolo);
+            mat.SetFloat(HoloCardIDs.ParallaxDepth, 0.05f);
+            mat.SetFloat(HoloCardIDs.ParallaxSteps, 40f);
+            mat.SetFloat(HoloCardIDs.ParallaxChroma, 0f);
+            mat.SetFloat(HoloCardIDs.DepthShade, 0.55f);
+
+            mat.SetFloat(HoloCardIDs.HoloIntensity, 0.30f);
+            mat.SetFloat(HoloCardIDs.HoloScale, 5.5f);
+            mat.SetFloat(HoloCardIDs.HoloSpread, 3.4f);
+            mat.SetFloat(HoloCardIDs.HoloContrast, 1.5f);
+            mat.SetFloat(HoloCardIDs.HoloBlend, 0.25f);
+
+            mat.SetFloat(HoloCardIDs.SparkleIntensity, 0.18f);
+            mat.SetFloat(HoloCardIDs.SparkleDensity, 70f);
+
+            mat.SetFloat(HoloCardIDs.GlareIntensity, 0.26f);
+            mat.SetFloat(HoloCardIDs.GlareSize, 0.62f);
+            mat.SetFloat(HoloCardIDs.GlarePower, 1.8f);
+            mat.SetFloat(HoloCardIDs.SheenIntensity, 0.30f);
+
+            mat.SetFloat(HoloCardIDs.Bevel, 0.06f);
+            mat.SetFloat(HoloCardIDs.RimIntensity, 0.30f);
+
+            EditorUtility.SetDirty(mat);
+            AssetDatabase.SaveAssets();
+            return mat;
+        }
+
+        /// <summary>
+        /// 카드 뒷면. 홀로 셰이더를 쓰지 않는다.
+        /// 실제 카드 뒷면은 코팅 없는 무광 카드지고, 여기에 무지개가 얹히면
+        /// 앞면과 구분이 안 가서 "카드를 뒤집었다"는 느낌이 죽는다.
+        /// </summary>
+        static Material CreateCardBackMaterial()
+        {
+            const string path = MaterialsDir + "/CardBack.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = Shader.Find("Universal Render Pipeline/Lit");
+            mat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"{TexturesDir}/CardBack.png"));
+            mat.SetColor("_BaseColor", Color.white);
+            mat.SetFloat("_Smoothness", 0.12f);   // 무광 카드지
+            mat.SetFloat("_Metallic", 0f);
+            EditorUtility.SetDirty(mat);
+            AssetDatabase.SaveAssets();
+            return mat;
+        }
 
         static Material CreateRimMaterial()
         {

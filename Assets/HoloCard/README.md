@@ -15,8 +15,8 @@ Unity 메뉴에서:
 
 | 메뉴 | 하는 일 |
 |---|---|
-| `Tools > Holo Card > Create Demo Scene` | 3D 카드 데모 씬을 통째로 생성 (카메라·조명·배경·프리셋·머티리얼 포함) |
-| `Tools > Holo Card > Create Card Gallery Scene` | Textures/ 에서 Depth·Foil 이 갖춰진 카드를 모두 찾아 부채꼴로 늘어놓은 씬 |
+| `Tools > Holo Card > Create Demo Scene` | 카드 한 장짜리 3D 데모 씬 (카메라·조명·배경·프리셋·머티리얼 포함) |
+| `Tools > Holo Card > Create Card Gallery Scene` | **가지고 있는 카드를 전부 늘어놓고 구경하는 씬.** 클릭하면 확대 |
 | `Tools > Holo Card > Create UI Demo Scene` | uGUI 캔버스 위의 카드 데모 씬 |
 | `Tools > Holo Card > Create Card Prefab` | 씬은 건드리지 않고 카드 프리팹만 |
 | `Tools > Holo Card > Depth and Foil Baker` | 카드 이미지 한 장에서 Depth·Foil 맵 생성 (미리보기 있음) |
@@ -26,7 +26,16 @@ Unity 메뉴에서:
 | `Tools > Holo Card > Generate Pack Art` | 팩 포장지와 카드 뒷면 텍스처를 절차적으로 생성 |
 | `Tools > Holo Card > Create Pack Opening Scene` | 카드팩 개봉 연출 씬 |
 
-갤러리 씬에서는 **카드를 클릭하면 크게 볼 수 있다.**
+### 씬 네 개
+
+| 씬 | 용도 |
+|---|---|
+| `Scenes/HoloCardDemo` | 샘플 카드 한 장. 셰이더 값을 만져 보는 용도 |
+| `Scenes/HoloCardGallery` | **카드를 전부 늘어놓고 구경하는 씬** |
+| `Scenes/HoloCardUIDemo` | uGUI 캔버스 위의 카드 |
+| `PackOpening/Scenes/PackOpening` | 카드팩 개봉 가챠 연출 |
+
+갤러리와 팩 개봉 양쪽에서 **카드를 클릭하면 크게 볼 수 있다.**
 
 | 조작 | 동작 |
 |---|---|
@@ -78,8 +87,12 @@ Assets/HoloCard/
 |---|---|
 | `Idle` | 팩이 공중에 떠서 포인터를 따라 기운다. 클릭하면 시작 |
 | `Tearing` | 상단 스트립이 지그재그 이음매를 따라 찢겨 날아가고 포일 조각이 터진다 |
-| `Dealing` | 카드가 팩 입구에서 한 장씩 **뒷면으로** 솟아 부채꼴로 깔린다 |
+| `Dealing` | 팩이 뒤로 물러나며 카드가 입구에서 한 장씩 **뒷면으로** 솟아 부채꼴로 깔린다. 카메라도 같이 후퇴 |
 | `Browsing` | 카드를 클릭하면 뒤집히며 확대된다 |
+
+카드가 나오는 동안 팩은 `packRecedeZ` 만큼 뒤로 물러난다. 카드는 카메라 쪽(작은 z)에
+깔리므로 이렇게 해야 메시가 겹치지 않는다. 빈 팩은 마지막 카드가 나오자마자 떨어진다.
+`fanSpacing` 은 카드 폭(약 0.64)보다 커야 카드끼리도 겹치지 않는다.
 
 조작: 팩 클릭 → 개봉 / 카드 클릭 → 뒤집기+확대 / `←` `→` 이웃 카드 / `ESC` 해제 /
 `R` 다시 뽑기.
@@ -107,9 +120,23 @@ PackOpening/
   Textures/                  PackWrap / CardBack (+ 각각의 Depth·Foil)
 ```
 
-팩 포장지와 카드 뒷면 **모두 홀로 셰이더를 쓴다.** 절차 생성기가 아트와 함께
-Depth·Foil 도 뽑아 주기 때문에, 팩을 기울이면 포장지가 무지개로 일렁이고
-카드 뒷면의 방사형 광선도 각도에 따라 반짝인다.
+### 팩은 비닐, 뒷면은 종이
+
+둘의 재질이 다르므로 셰이더도 다르게 간다.
+
+**팩 포장지**는 홀로 셰이더를 쓰되 카드와는 값이 다르다. 무지개는 은은하게
+깔고(`_HoloIntensity` 0.30) 대신 시트 반사와 넓은 글레어를 크게 올려야
+"코팅된 종이"가 아니라 "필름"으로 읽힌다. 생성기가 Depth 에 **구김**을 새겨서
+패럴랙스가 접힘을 실제로 파낸다. 등방성 노이즈를 그대로 쓰면 대리석 무늬가 되므로
+노이즈를 세로로 길게 늘여 손으로 쥔 자국 같은 긴 접힘을 만든다.
+
+**카드 뒷면은 홀로 셰이더를 쓰지 않는다.** URP Lit 에 Smoothness 0.12 인 무광
+카드지다. 실제 카드 뒷면은 코팅이 없고, 여기에 무지개가 얹히면 앞면과 구분이 안 가서
+"카드를 뒤집었다"는 느낌이 죽는다.
+
+> 뒷면이 Lit 이라 **조명을 받아야 보인다.** 씬의 키·필 라이트는 뒤·옆에서 오므로
+> 카메라를 향한 면을 비추는 `Front Fill` 을 따로 둔다. 카드 앞면과 팩 표면은
+> 언릿이라 이 빛에 영향받지 않는다.
 
 > 이 부분만 **DOTween 에 의존한다**(프로젝트에 이미 들어 있다). 셰이더 키트
 > 본체(`Shaders/`, `Scripts/`)는 외부 의존성이 없다.

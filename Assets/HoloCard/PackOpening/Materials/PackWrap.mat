@@ -38,32 +38,32 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Bevel: 0.18
+    - _Bevel: 0.06
     - _BevelWidth: 0.035
-    - _DepthShade: 0.38
+    - _DepthShade: 0.55
     - _EnvIntensity: 0
     - _EnvRoughness: 0.15
     - _GammaBlend: 1
-    - _GlareIntensity: 0.5
-    - _GlarePower: 2.2
-    - _GlareSize: 0.7
+    - _GlareIntensity: 0.26
+    - _GlarePower: 1.8
+    - _GlareSize: 0.62
     - _HoloAngle: 96
-    - _HoloBlend: 0.35
-    - _HoloContrast: 2.4
+    - _HoloBlend: 0.25
+    - _HoloContrast: 1.5
     - _HoloGrazing: 0.8
-    - _HoloIntensity: 0.55
-    - _HoloScale: 4.5
+    - _HoloIntensity: 0.3
+    - _HoloScale: 5.5
     - _HoloSpeed: 0.05
-    - _HoloSpread: 1.4
-    - _ParallaxChroma: 0.09
-    - _ParallaxDepth: 0.075
-    - _ParallaxSteps: 32
-    - _RimIntensity: 0.5
+    - _HoloSpread: 3.4
+    - _ParallaxChroma: 0
+    - _ParallaxDepth: 0.05
+    - _ParallaxSteps: 40
+    - _RimIntensity: 0.3
     - _RimPower: 2.5
-    - _SheenIntensity: 0.08
-    - _SparkleDensity: 260
+    - _SheenIntensity: 0.3
+    - _SparkleDensity: 70
     - _SparkleDepth: 0.35
-    - _SparkleIntensity: 1.8
+    - _SparkleIntensity: 0.18
     - _SparklePower: 45
     - _Tilt: 0
     - _ViewBlend: 0.35

@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fabcd2875a9b4ea45954bb50d9c8eafb, type: 3}
   m_Name: FullArtFoil
   m_EditorClassIdentifier: Assembly-CSharp::HoloCard.HoloCardPreset
-  parallaxDepth: 0.05
+  parallaxDepth: 0.015
   parallaxSteps: 32
-  parallaxChroma: 0.05
+  parallaxChroma: 0.015
   depthShade: 0.38
   holoIntensity: 0.3
   holoScale: 13
@@ -27,7 +27,7 @@ MonoBehaviour:
   sparkleIntensity: 1.35
   sparkleDensity: 210
   sparklePower: 55
-  sparkleDepth: 0.35
+  sparkleDepth: 0.9
   glareIntensity: 0.1
   glareSize: 0.45
   glarePower: 3.2
