@@ -21,7 +21,7 @@ namespace HoloCard.PackOpening.Editor
             Directory.CreateDirectory(Dir);
 
             Write("CardBack", BuildCardBack(734, 1024));
-            Write("PackWrap", BuildPackWrap(512, 900));
+            Write("PackWrap", BuildPackWrap(512, 975));   // 셸 비율 1 : 1.905
 
             AssetDatabase.Refresh();
             Debug.Log($"[Pack Opening] 팩 아트 생성 완료 → {Dir}");
@@ -149,20 +149,43 @@ namespace HoloCard.PackOpening.Editor
 
         // ── 팩 포장지 ────────────────────────────────────────────────────
 
+        /// <summary>
+        /// 팩 포장지.
+        ///
+        /// UV 는 셸 메시(PackShellBaker)의 XY 평행투영이라 텍스처 세로 위치가 곧
+        /// 팩 높이다. 그래서 위아래 끝의 압착 밀봉(크림프)을 텍스처에서도 그려야
+        /// 한다. 다만 실물을 보면 그 구간이 은박으로 **바뀌는** 게 아니라 같은
+        /// 인쇄가 눌려서 어두워지고 실링 다이의 세로 골이 얹힌 것이다. 폭도
+        /// 생각보다 훨씬 좁다 — 위아래 각각 5% 정도.
+        ///
+        /// 바탕은 소용돌이다. 평평한 그라디언트 위에서는 필름 셰이더의 정반사가
+        /// 갈 곳이 없어 얼룩이 그대로 다 드러난다. 실물 팩 배경이 거의 예외 없이
+        /// 감아 나가는 빛줄기인 데는 이유가 있다.
+        ///
+        /// 구김 음영은 아주 약하게만 굽는다. 움직이는 구김은 PackFilm 셰이더가
+        /// 맡으므로, 텍스처에 박힌 정적인 구김이 세면 두 겹이 어긋나 인쇄된
+        /// 구김처럼 보인다.
+        /// </summary>
         static Layer BuildPackWrap(int w, int h)
         {
             var art = new Color[w * h];
             var depth = new float[w * h];
             var foil = new float[w * h];
 
-            var top    = new Color(0.16f, 0.42f, 0.78f);
-            var bottom = new Color(0.05f, 0.06f, 0.24f);
+            var top    = new Color(0.14f, 0.36f, 0.72f);
+            var bottom = new Color(0.04f, 0.05f, 0.22f);
+            var foam   = new Color(0.72f, 0.84f, 0.97f);
             var accent = new Color(0.95f, 0.30f, 0.42f);
             var gold   = new Color(0.92f, 0.78f, 0.40f);
             var cream  = new Color(0.96f, 0.94f, 0.88f);
+            var silver = new Color(0.58f, 0.62f, 0.70f);
 
-            // 상단 8% 는 뜯겨 나가는 스트립
-            const float tearLine = 0.92f;
+            // 밀봉 띠가 시작하는 높이 (끝에서부터의 거리 기준).
+            const float crimp = 0.955f;
+            // 뜯는 선은 크림프 바로 아래.
+            const float tearLine = 0.925f;
+
+            float aspect = (float)h / w;
 
             for (int y = 0; y < h; y++)
             {
@@ -172,37 +195,41 @@ namespace HoloCard.PackOpening.Editor
                     float u = (x + 0.5f) / w;
                     float v = (y + 0.5f) / h;
 
-                    // 세로 그라디언트
-                    Color c = Color.Lerp(bottom, top, Mathf.Pow(v, 0.75f));
+                    // 위아래가 대칭이므로 "끝에서 얼마나 떨어졌나" 하나로 다룬다.
+                    float fromEnd = Mathf.Min(v, 1f - v);
+                    float crimpMask = 1f - Mathf.Clamp01((fromEnd - (1f - crimp)) / 0.018f);
 
-                    // 대각 광택 띠 세 줄
-                    float diag = u * 0.75f + v * 0.66f;
-                    for (int k = 0; k < 3; k++)
-                    {
-                        float center = 0.32f + k * 0.34f;
-                        float band = Mathf.Exp(-Mathf.Pow((diag - center) * 9f, 2f));
-                        c += new Color(0.55f, 0.65f, 0.85f) * band * 0.30f;
-                    }
+                    // ── 바탕 소용돌이
+                    float sx = (u - 0.5f) * 2f;
+                    float sy = (v - 0.52f) * 2f * aspect;
+                    float sr = Mathf.Sqrt(sx * sx + sy * sy);
+                    float twist = Mathf.Atan2(sy, sx) + sr * 2.2f;
 
-                    float d = 0.42f + Mathf.Pow(v, 0.75f) * 0.18f;
-                    float f = 0.75f;
+                    float arms = Mathf.Sin(twist * 5f + Fbm(sx * 1.8f, sy * 1.8f, 3) * 5f) * 0.5f + 0.5f;
+                    arms = Mathf.Pow(arms, 2.2f) * Mathf.Clamp01(1.2f - sr * 0.42f);
 
-                    // 중앙 원형 엠블럼
+                    Color c = Color.Lerp(bottom, top, Mathf.Pow(v, 0.7f));
+                    c = Color.Lerp(c, foam, arms * 0.5f);
+
+                    float d = 0.42f + arms * 0.10f;
+                    float f = 0.80f;
+
+                    // ── 중앙 원형 엠블럼
                     float cx = (u - 0.5f) * 2f;
-                    float cy = (v - 0.62f) * 2f * ((float)h / w);
+                    float cy = (v - 0.55f) * 2f * aspect;
                     float r = Mathf.Sqrt(cx * cx + cy * cy);
 
                     float disc = 1f - Mathf.Clamp01((r - 0.42f) / 0.03f);
                     if (disc > 0f)
                     {
-                        c = Color.Lerp(c, bottom * 1.4f, disc * 0.85f);
-                        d = Mathf.Lerp(d, 0.66f, disc);
+                        c = Color.Lerp(c, bottom * 1.4f, disc * 0.88f);
+                        d = Mathf.Lerp(d, 0.60f, disc);
                     }
                     float discRim = 1f - Mathf.Clamp01(Mathf.Abs(r - 0.42f) / 0.022f);
                     if (discRim > 0f)
                     {
                         c = Color.Lerp(c, gold, discRim);
-                        d = Mathf.Lerp(d, 0.86f, discRim);
+                        d = Mathf.Lerp(d, 0.78f, discRim);
                         f = Mathf.Lerp(f, 1f, discRim);
                     }
 
@@ -214,52 +241,64 @@ namespace HoloCard.PackOpening.Editor
                     {
                         float shade = Mathf.Clamp01(0.4f + (rot.y + 0.2f) * 1.6f);
                         c = Color.Lerp(c, Color.Lerp(accent, cream, shade), gem);
-                        d = Mathf.Lerp(d, 0.94f, gem);
+                        d = Mathf.Lerp(d, 0.86f, gem);
                         f = Mathf.Lerp(f, 1f, gem);
                     }
 
-                    // 하단 라벨 바
-                    if (v < 0.16f)
+                    // ── 하단 라벨 바
+                    float bar = 1f - Mathf.Clamp01((Mathf.Abs(v - 0.145f) - 0.030f) / 0.010f);
+                    if (bar > 0f)
                     {
-                        float bar = 1f - Mathf.Clamp01((Mathf.Abs(v - 0.09f) - 0.035f) / 0.012f);
-                        if (bar > 0f)
-                        {
-                            c = Color.Lerp(c, cream, bar * 0.92f);
-                            d = Mathf.Lerp(d, 0.78f, bar);
-                            f = Mathf.Lerp(f, 0.2f, bar);
-                        }
+                        c = Color.Lerp(c, cream, bar * 0.92f);
+                        d = Mathf.Lerp(d, 0.70f, bar);
+                        f = Mathf.Lerp(f, 0.2f, bar);
                     }
 
-                    // 뜯는 선 — 점선과 노치
-                    float tear = 1f - Mathf.Clamp01(Mathf.Abs(v - tearLine) / 0.004f);
+                    // ── 뜯는 선 (점선)
+                    float tear = 1f - Mathf.Clamp01(Mathf.Abs(v - tearLine) / 0.0035f);
                     if (tear > 0f)
                     {
                         float dash = Mathf.Repeat(u * 46f, 1f) < 0.55f ? 1f : 0.15f;
-                        c = Color.Lerp(c, cream, tear * dash * 0.8f);
-                        d = Mathf.Lerp(d, 0.3f, tear * dash);
+                        c = Color.Lerp(c, cream, tear * dash * 0.75f);
+                        d = Mathf.Lerp(d, 0.28f, tear * dash);
                     }
-                    // 스트립 쪽은 살짝 밝게 구분
-                    if (v > tearLine) c *= 1.12f;
 
-                    // 테두리 접합부
+                    // ── 좌우 접합부
                     float edgeU = Mathf.Min(u, 1f - u);
-                    float seam = 1f - Mathf.Clamp01(edgeU / 0.035f);
-                    c = Color.Lerp(c, bottom * 1.2f, seam * 0.55f);
+                    float seam = 1f - Mathf.Clamp01(edgeU / 0.030f);
+                    c = Color.Lerp(c, bottom * 1.2f, seam * 0.5f);
                     d = Mathf.Lerp(d, 0.30f, seam * 0.7f);
 
-                    // ── 구김. 팩은 카드와 달리 딱딱한 인쇄물이 아니라 비닐이다.
-                    // 접힌 마루는 빛을 받아 밝고 살짝 솟아 있고, 골은 어둡게 파인다.
+                    // ── 구김. 셰이더가 움직이는 구김을 맡으므로 여기서는 큰 굴곡만.
                     float crease = Crease(u, v, out float coarse);
-                    float fold = (coarse - 0.5f) * 2f;          // -1..1, 완만한 굴곡
+                    float fold = (coarse - 0.5f) * 2f;
 
-                    d = Mathf.Clamp01(d + fold * 0.08f + crease * 0.26f);
+                    d = Mathf.Clamp01(d + fold * 0.05f + crease * 0.08f);
+                    c *= 0.96f + fold * 0.04f;
+                    c += new Color(0.62f, 0.70f, 0.88f) * crease * 0.06f;
+                    f = Mathf.Clamp01(f * (1f - crease * 0.18f));
 
-                    // 마루에서 하이라이트가 터지고 골은 가라앉는다.
-                    c *= 0.90f + fold * 0.09f;
-                    c += new Color(0.62f, 0.70f, 0.88f) * crease * 0.24f;
+                    // ── 압착 밀봉. 접히는 선에 그늘이 먼저 지고, 그 위가 눌린 인쇄다.
+                    float shoulder = 1f - Mathf.Clamp01(Mathf.Abs(fromEnd - (1f - crimp)) / 0.012f);
+                    c = Color.Lerp(c, c * 0.5f, shoulder * 0.75f);
 
-                    // 접힌 곳은 포일 방향이 틀어져서 반사가 끊긴다.
-                    f = Mathf.Clamp01(f * (1f - crease * 0.45f));
+                    if (crimpMask > 0f)
+                    {
+                        // 완전 등간격이면 기계 무늬가 된다. 위상을 조금 흔든다.
+                        float wobble = (ValueNoise(u * 11f, 5.3f) - 0.5f) * 1.4f;
+                        float rib = Mathf.Cos((u * 46f + wobble) * Mathf.PI * 2f) * 0.5f + 0.5f;
+
+                        Color pressed = c * (0.45f + rib * 0.75f);
+                        pressed = Color.Lerp(pressed, silver * (0.45f + rib * 0.8f), 0.30f);
+
+                        // 맨 끝 가장자리는 얇게 눌려 어둡다.
+                        float lip = 1f - Mathf.Clamp01(fromEnd / 0.008f);
+                        pressed = Color.Lerp(pressed, pressed * 0.35f, lip * 0.85f);
+
+                        c = Color.Lerp(c, pressed, crimpMask);
+                        d = Mathf.Lerp(d, 0.40f + rib * 0.10f, crimpMask);
+                        f = Mathf.Lerp(f, 1f, crimpMask);
+                    }
 
                     float n = Hash(x * 0.9f, y * 0.9f) - 0.5f;
                     c += new Color(n, n, n) * 0.02f;

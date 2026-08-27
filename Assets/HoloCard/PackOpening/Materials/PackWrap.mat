@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: PackWrap
-  m_Shader: {fileID: 4800000, guid: 8d23b4795bb3642478a7b2b0c312c75d, type: 3}
+  m_Shader: {fileID: 4800000, guid: 4d442295819943f4aaf2486c5b247cb2, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -25,52 +25,70 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: cd88ce99d1c00af4eb8173aab3754208, type: 3}
+        m_Texture: {fileID: 2800000, guid: 1702521fece180f46b5ac1f452f215e1, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DepthMap:
-        m_Texture: {fileID: 2800000, guid: 0080a34662c16924bb38ad9a445930c2, type: 3}
+        m_Texture: {fileID: 2800000, guid: 07383cba2d641374a91a50028f711a0d, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _FoilMask:
-        m_Texture: {fileID: 2800000, guid: dc4cce473b3d7ca4483ac330036cbf39, type: 3}
+        m_Texture: {fileID: 2800000, guid: b8250d9608fa9cd43a41e40920206a45, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Bevel: 0.06
+    - _Bevel: 0.02
     - _BevelWidth: 0.035
-    - _DepthShade: 0.55
+    - _CrinkleRidge: 0.9
+    - _CrinkleScale: 4
+    - _CrinkleSharpness: 6
+    - _CrinkleStrength: 0.11
+    - _CrinkleStretch: 0.32
+    - _Cull: 0
+    - _DepthShade: 0.45
     - _EnvIntensity: 0
     - _EnvRoughness: 0.15
+    - _FormShade: 0.22
     - _GammaBlend: 1
-    - _GlareIntensity: 0.26
+    - _GlareIntensity: 0.04
     - _GlarePower: 1.8
     - _GlareSize: 0.62
-    - _HoloAngle: 96
+    - _HoloAngle: 28
     - _HoloBlend: 0.25
     - _HoloContrast: 1.5
-    - _HoloGrazing: 0.8
-    - _HoloIntensity: 0.3
-    - _HoloScale: 5.5
+    - _HoloGrazing: 0.25
+    - _HoloIntensity: 0.07
+    - _HoloScale: 5
     - _HoloSpeed: 0.05
     - _HoloSpread: 3.4
+    - _InteriorDarken: 0.18
     - _ParallaxChroma: 0
-    - _ParallaxDepth: 0.05
-    - _ParallaxSteps: 40
-    - _RimIntensity: 0.3
-    - _RimPower: 2.5
-    - _SheenIntensity: 0.3
+    - _ParallaxDepth: 0
+    - _ParallaxSteps: 24
+    - _RimIntensity: 0.18
+    - _RimPower: 3.5
+    - _SheenIntensity: 0.1
     - _SparkleDensity: 70
     - _SparkleDepth: 0.35
-    - _SparkleIntensity: 0.18
+    - _SparkleIntensity: 0.05
     - _SparklePower: 45
+    - _SpecIntensity: 1.3
+    - _SpecPower: 120
+    - _StudioBoxSize: 0.26
+    - _StudioIntensity: 0.35
     - _Tilt: 0
-    - _ViewBlend: 0.35
+    - _ViewBlend: 0
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _InteriorColor: {r: 0.15999997, g: 0.16999996, b: 0.21999997, a: 1}
     - _PointerUV: {r: 0.5, g: 0.5, b: 0, a: 0}
-    - _RimColor: {r: 0.6, g: 0.8, b: 1, a: 1}
+    - _RimColor: {r: 1, g: 0.99, b: 0.96, a: 1}
+    - _SpecColor: {r: 1, g: 0.97999996, b: 0.94, a: 1}
+    - _StudioBox: {r: 0.95, g: 0.97, b: 1.05, a: 1}
+    - _StudioBoxDir: {r: 0.25, g: 0.3, b: -0.92, a: 0}
+    - _StudioGround: {r: 0.02, g: 0.02, b: 0.035, a: 1}
+    - _StudioSky: {r: 0.15, g: 0.19, b: 0.29, a: 1}
     - _VirtualView: {r: 0, g: 0, b: 1, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

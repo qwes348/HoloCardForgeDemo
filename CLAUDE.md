@@ -27,6 +27,20 @@
 MCP 로 검증할 때 **스크린샷이 계속 이전 프레임을 잡는 원인**이므로,
 플레이 진입 후 `Application.runInBackground = true` 를 먼저 넣고 시작할 것.
 
+### 메뉴를 부르기 전에 씬을 저장할 것
+`Create Pack Opening Scene` 은 첫 줄에서 `SaveCurrentModifiedScenesIfUserWantsTo()`
+를 부른다. 씬이 dirty 하면 **모달 다이얼로그**가 뜨고, 그 순간 Unity 메인 스레드가
+멈춰서 **MCP 브리지가 통째로 죽는다** (`Command TCS timed out` 이 계속 쌓인다).
+밖에서는 닫을 방법이 없어 사용자에게 클릭을 부탁해야 한다.
+MCP 로 메뉴를 부르기 전에 `EditorSceneManager.SaveScene` 으로 먼저 정리할 것.
+
+### 연출은 스크린샷으로 검증할 수 없다
+MCP 왕복 지연이 2~4초라 그게 그대로 샘플 간격이 된다. 0.16초짜리 슬래시 광선은
+**원리적으로 못 잡는다.** `Time.timeScale` 을 낮춰도 DOTween 시퀀스는 그대로 지나가
+버린 전례가 있다. `PackOpeningRecorder.Capture()` 를 쓸 것 — `Time.captureFramerate`
+로 프레임당 정확히 1/fps 씩 진행시키며 RenderTexture 를 파일로 뽑으므로 실제 속도와
+무관하게 원하는 타이밍이 정확히 찍힌다. 뽑은 PNG 는 ffmpeg 으로 GIF 로 묶으면 된다.
+
 ### 스크린샷 축소가 판단을 망친다
 인라인 프리뷰로 내려받은 축소 이미지는 미세한 글리터를 평균 내서 실제보다 훨씬
 뿌옇게 보인다. **룩 판단은 반드시 원본 해상도 1:1 크롭으로** 할 것.
@@ -44,6 +58,127 @@ MCP 로 검증할 때 **스크린샷이 계속 이전 프레임을 잡는 원인
 - 앞면은 **-Z** 를 본다 (Unity 기본 Quad 와 동일)
 - 탄젠트 `(1,0,0,-1)`
 - 서브메시 **0=앞면 / 1=뒷면 / 2=옆면** → 머티리얼 배열 길이 3
+
+### 팩 셸: 도메인 리로드가 캐시를 반쯤만 지운다
+`CardPack` 은 셸 정점 배열을 캐시한다. 리로드를 건너면 원본 `Mesh` **참조는
+살아남고** 배열을 담은 구조체는 통째로 날아간다. "원본이 그대로면 캐시도 그대로"
+로만 판단하면 빈 캐시를 유효하다고 믿고 **조용히 프리즘 폴백으로 떨어진다**
+(에러도 안 난다. 팩이 갑자기 납작해져 있으면 이걸 의심할 것). 내용도 같이 본다.
+
+### 팩 셸: 절단면에 캡을 만들지 말 것
+원본 FBX 는 크림프에서 앞뒷면이 맞닿아 **비다양체 엣지가 2500 개쯤** 된다.
+절단 루프를 따라 걷는 캡 생성은 거기서 반드시 터진다. `PackFilm` 을 양면으로
+그리고 뒷면을 어둡게 죽이는 쪽이 봉지 속으로도 더 맞다.
+
+### 팩 셸: 뜯는 선은 폴리라인이어야 한다
+톱니를 해시 함수로 **연속 평가하면** 삼각형마다 백색잡음이 걸려 절단면이
+지저분해진다. 프리즘 경로와 똑같이 등간격 샘플 배열을 만들어 두고 그 사이만
+선형 보간할 것. 톱니 수는 셸 격자(가로 약 37칸)보다 촘촘하면 안 된다 (20 이하).
+
+### 필름 셰이더는 SRP Batcher 대상이 아니다
+`HoloCardCore.hlsl` 이 `UnityPerMaterial` 을 통째로 열고 닫으므로 `PackFilm` 은
+자기 유니폼을 CBUFFER 밖에 둔다. 대신 **셰이더 키트(`Shaders/`)를 팩 사정으로
+건드리지 않는다.** 이 거래를 뒤집지 말 것 (팩 조각은 씬에 둘뿐이다).
+
+### 구김·반사는 과하게 주면 즉시 무너진다
+- 구김 밀도를 올리면 법선 기울기가 같이 커진다. `_CrinkleScale` 로 나눠 주는
+  정규화가 빠지면 촘촘할수록 **빗줄기**가 된다.
+- 구김을 **완만하게** 접으면 둥근 혹이 떠서 **물 셰이더**가 된다. 노이즈의 0
+  등고선만 `pow` 로 세워 가느다란 선으로 남기고 면은 평평하게 둘 것.
+- 크림프 구간은 uv 가 세로로 심하게 압축돼 있다. 거기서 몸통 구김을 그대로
+  계산하면 세로로 죽죽 흐른다. 끝에서는 죽일 것.
+- 구김으로 시선을 튼 상태에서 POM 을 돌리면 인쇄가 통째로 출렁인다.
+  팩은 `_ParallaxDepth` 0 이 맞다.
+- 프레넬·스페큘러·구김이 겹치는 자리(스치는 각도의 곡면)는 그냥 더하면 흰
+  덩어리가 된다. `1 - exp(-x)` 로 포화시킨다.
+- 반사되는 "방" 은 어둡고 소프트박스만 밝게. 환경 전체를 밝히면 팩이 하얗게 뜬다.
+- 소프트박스는 `reflect.y` 가 아니라 **방향 벡터**로 잡을 것. 팩은 부푼 방향이
+  가로라 정면에서 반사 벡터의 y 가 거의 0 이다 — y 로 잡으면 영원히 안 걸린다.
+
+### 언릿 표면은 곡률이 색에 안 나타난다
+홀로 셰이더는 언릿이라 아무리 부풀려도 base color 는 그대로다. 하이라이트만으로는
+몸통이 둥글게 안 읽혀서 끝까지 판때기로 보인다. 부드러운 명암(`_FormShade`)을 한 겹
+곱해야 부피가 생긴다. **단 법선으로 만들지 말 것** — 아래 항목.
+
+### 셸의 베벨 링은 스무딩으로 못 없앤다
+원본은 완전히 평평한 앞면과 좁은 베벨이 각지게 맞닿아 있다. 법선 *값* 은 이어지지만
+*기울기* 가 꺾여서, **법선을 보는 항은 예외 없이** 그 경계에 액자 테두리를 그린다.
+- 이웃 평균(우산 연산자)을 많이 돌리면 **더 나빠진다.** 베벨 쪽 정점 밀도가 앞면보다
+  훨씬 높아서 법선이 촘촘한 쪽으로 끌려가고, 원래 꺾임 대신 밀도 경계에 새 능선이
+  생긴다. 5회 정도가 한계.
+- 형태 음영은 법선 대신 **`uv.x` 로** 만든다. 부풀리기 자체가 uv.x 의 함수라
+  (`PackShellBaker` 의 dome) 같은 모양이 나오면서 완전히 매끄럽다.
+- 반사는 경계를 부드럽게 두고 **딱딱한 하이라이트는 스페큘러에 맡긴다.**
+
+### 실사 사진을 물리면 셰이더 값을 전부 낮춰야 한다
+사진에는 조명·구김·명암이 이미 구워져 있다. 그대로 두면 더하는 항들이 어두운 인쇄를
+들어 올려서 전체가 뿌옇게 뜬다. `CreateWrapMaterial` 이 `ArtDir()` 로 실사/절차를
+판별해 두 벌의 값을 쓴다.
+
+사진에서 봉지를 잘라낼 때
+- **알파 bbox 를 믿지 말 것.** 대개 알파 밖까지 흰 배경이 남아 있어 크림프 자리에
+  흰 테두리가 생긴다.
+- 셸 비율(1 : 1.90592)은 **가로를 깎아서** 맞춘다. 세로로 늘이면 그림이 길쭉해지고
+  위아래에 덧대면 크림프가 두꺼워진다.
+
+### 겹쳐 쌓은 카드는 기울이는 순간 서로를 뚫는다
+캐러셀은 카드를 한 자리에 겹쳐 쌓는다(`CardCarousel.stackStep`). 맨 앞 장은
+포인터를 따라 기우는데, 기울면 가장자리가 **뒤로** 스친다 — 그 거리가
+`카드 반폭 × sin(최대 기울기)` 라 13도면 0.072 나 된다. 앞뒤 간격을 그보다 좁게
+잡으면 카드를 기울이는 순간 밑장이 앞 장을 뚫고 올라와 **다른 카드의 인쇄가
+앞 장 위에 겹쳐 보인다.** 스케일·오프셋만 보고 "몇 mm 만 어긋내면 되겠다" 로
+z 까지 같이 좁히면 반드시 걸린다.
+
+### 팝인 트윈이 붙는 오브젝트에 크기를 주지 말 것
+표식·뱃지는 `DOScale(Vector3.one)` 로 튀어나온다. 그 오브젝트 자체에 크기를 주면
+(`localScale = (0.2, 0.1, 1)`) 트윈이 그 값을 **1 로 덮어써서** 1 유닛짜리로
+부풀어 오른다. 크기는 반드시 자식 쿼드가 들고, 루트는 0 → 1 로만 튀게 할 것.
+같은 이유로 팝인 하는 루트의 **자식에 섬광을 달면 안 된다** — 0 에서 출발하는
+루트 스케일이 곱해져 아무것도 안 보인다. 형제로 두고 자리를 따로 잡는다.
+
+### URP 파티클 머티리얼은 텍스처를 안 물리면 흰 정사각형이다
+`Universal Render Pipeline/Particles/Unlit` 에 `_BaseMap` 을 안 주면 파티클이
+흰 **네모**로 날아다닌다. "스파클 폭발" 이 색종이 폭발이 되는 원인이다.
+(`CreateParticleMaterial` 의 texture 인자)
+
+### 셰이더 값은 CreateCardMaterial 로 안 들어간다
+`HoloCardSetup.CreateCardMaterial` 은 프리셋을 **새로 만든 머티리얼에만** 붓는다
+(`isNew` 가드). 이미 존재하는 카드 13장은 프리셋을 고쳐도, 씬을 다시 만들어도
+값이 안 바뀐다. 씬 생성기가 확실히 먹여야 하는 값은 `PackOpeningSetup` 쪽에서
+**빠짐없이 직접** 적을 것 (`ApplyBorderFoil` 이 그 예다).
+
+### 기울기 세기를 n.z 로 재지 말 것
+카드가 실제로 기우는 범위에서 탄젠트 시선의 `n.z` 는 0.8~1.0 밖에 안 움직인다.
+`1 - abs(n.z)` 를 세기로 쓰면 아무리 기울여도 0.2 언저리라 효과가 안 산다 —
+테두리 포일을 처음 그렇게 짰다가 무지개가 통째로 뿌연 흰 띠로만 나왔다.
+화면에 투영된 기울기 `length(n.xy)` 로 재면 같은 범위가 0~0.5 로 펼쳐진다.
+
+### 채도를 흰색과 lerp 해서 빼지 말 것
+`lerp(흰색, 색, 채도)` 는 채도만 빼는 게 아니라 **밝기까지 같이 올린다.** 중간
+각도가 전부 파스텔로 뜬다. 같은 밝기의 회색(`dot(색, 휘도가중치)`)과 섞어야
+"정면은 은박, 기울이면 무지개" 가 된다.
+
+### 가산 합성은 알파가 아니라 밝기로 죽인다
+섬광·광선·무지개처럼 `SrcAlpha / One` 으로 그리는 것들은 알파를 내려도
+`_BaseColor` 의 RGB 가 그대로면 끝까지 밝게 남는다. RGB 자체를 곱해서 죽일 것.
+
+### 개봉 씬 카드는 저 혼자 흔들려야 한다
+회절 무지개도 테두리 포일도 **각도가 변해야** 색이 산다. 포인터를 안 움직이면
+카드가 인쇄물 사진처럼 죽어 버리므로 `fallbackToAutoDemo` 를 켜 둔다.
+(레코더로 뽑을 때도 마찬가지 — 녹화 중에는 포인터가 없다.)
+
+### URP 의 _Blend 는 1 이 Additive 가 아니다
+`0=Alpha, 1=Premultiply, 2=Additive, 3=Multiply`. 1 을 넣으면 머티리얼 검증기가
+블렌드 스테이트를 `One / OneMinusSrcAlpha` 로 덮어써서 알파와 무관하게 RGB 가
+통째로 더해진다 — 흰 텍스처를 물린 전체 화면 판이면 **화면이 순백이 된다.**
+`_SrcBlend` / `_DstBlend` 를 직접 세워도 검증기가 다시 덮으므로 `_Blend` 를 맞출 것.
+
+### ExecuteAlways 는 자식을 만들기 전에 OnEnable 이 돈다
+`AddComponent` 하는 순간 `OnEnable` 이 먼저 실행된다. 거기서 자식 트랜스폼의
+제자리를 캡처하면 아직 자식이 없어서 전부 0 으로 잡히고, 그 뒤 `Update` 가 그
+값으로 위치를 덮어써 **z 까지 0 으로 뭉갠다** (배경 층 세 장이 한 평면에 겹쳤다).
+캡처는 자식을 다 붙인 뒤 명시적으로 부를 것 (`PackStage.CaptureHomes`).
+그리고 에디트 모드에서는 트랜스폼을 아예 건드리지 말 것.
 
 ### 셰이더: 합성은 감마 공간에서
 poke-holo 의 `color-dodge` 는 sRGB 공간 연산이다. 프로젝트가 Linear 라서
@@ -89,8 +224,18 @@ poke-holo 의 `color-dodge` 는 sRGB 공간 연산이다. 프로젝트가 Linear
 이 때문에 `HoloCard_<이름>.mat` 13개와 `HoloCardGallery` / `PackOpening` 씬은
 클린 클론에서 텍스처 참조가 비어 있다. 다운로드 후 씬을 다시 생성하면 복구된다.
 
+`Assets/HoloCard/PackOpening/Textures/Pokemon/` 도 같은 이유로 제외돼 있다.
+여기에 `CardBack.png` / `PackWrap.png`(+`_Depth`, `_Foil`) 를 두면 그걸 쓰고,
+없으면 `PackOpeningSetup` 이 절차 생성본으로 자동 폴백한다 (`ArtDir()`).
+
 팩 포장지와 카드 뒷면 도안은 저작물을 피해 `PackArtGenerator` 가 절차적으로 그린
 오리지널이다.
+
+팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 스케치팹에서 받은 제3자 저작물이라
+같이 `.gitignore` 로 뺐다 (딸려 오는 텍스처가 실제 포켓몬 팩 사진이다).
+리포에는 한 번 구운 `PackOpening/Meshes/PackShell.asset` 만 들어간다.
+**이건 원본의 파생물이므로 라이선스(대개 CC-BY)와 저작자 표기를 확인할 것.**
+README 의 "팩 모델 출처" 에 자리를 비워 뒀다.
 
 ## 메뉴 (Tools > Holo Card)
 
@@ -100,11 +245,13 @@ poke-holo 의 `color-dodge` 는 sRGB 공간 연산이다. 프로젝트가 Linear
 | Create Card Gallery Scene | 가진 카드를 전부 늘어놓은 씬 |
 | Create UI Demo Scene | uGUI 캔버스 위의 카드 |
 | Create Card Prefab | 프리팹만 |
+| Bake Pack Shell | 카드팩 FBX → 프로젝트 규약 봉지 메시 |
 | Depth and Foil Baker | 카드 아트 → Depth·Foil (미리보기 창) |
 | Bake Selected Textures | 선택한 텍스처 일괄 굽기 |
 | Download Sample Cards | 예시 카드 13장 다운로드 + 굽기 + 머티리얼 |
 | Rebake Sample Cards | 다시 받지 않고 Depth·Foil·프리셋만 재생성 |
 | Generate Pack Art | 팩 포장지·카드 뒷면 텍스처 생성 |
+| Generate Stage Art | 배경 층·슬래시 이펙트 텍스처 생성 |
 | Create Pack Opening Scene | 팩 개봉 연출 씬 |
 
 **베이크 설정이나 프리셋을 고쳤으면 `Rebake Sample Cards` → 해당 씬 재생성**
@@ -117,7 +264,11 @@ Assets/HoloCard/
   Shaders/     HoloCardCore.hlsl + 3D / UI 셰이더
   Scripts/     Controller · Mesh · Prism · Inspector · Preset
     Editor/    Baker · Downloader · Setup · MaterialEditor
-  PackOpening/ CardPack · Director · ArtGenerator · Setup  (DOTween 의존)
+  PackOpening/ CardPack · Slicer · Director · Stage · Slash · Recorder
+               Carousel · CarouselArrow · RarityDisplay
+               ShellBaker · ArtGenerator · StageArt · Setup
+               + PackFilm.shader                            (DOTween 의존)
+  Model/       스케치팹 카드팩 FBX (gitignore)
   Presets/     프리셋 7종
   Textures/    오리지널 샘플 카드 (Pokemon/ 은 gitignore)
 ```

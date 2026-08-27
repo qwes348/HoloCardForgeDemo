@@ -116,3 +116,13 @@ InitTestScene*.unity*
 # Holo Card 예시용 실제 카드 스캔 (The Pokemon Company 저작물) — 로컬 실험 전용, 커밋 금지
 Assets/HoloCard/Textures/Pokemon/
 Assets/HoloCard/Textures/Pokemon.meta
+
+# 스케치팹에서 받은 카드팩 원본 모델 (제3자 저작물). PackShellBaker 로 한 번 구운
+# Meshes/PackShell.asset 만 커밋한다. 다시 구우려면 원본을 로컬에 다시 받을 것.
+Assets/HoloCard/Model/
+Assets/HoloCard/Model.meta
+
+# 실제 카드 뒷면 스캔 / 팩 사진 (The Pokemon Company 저작물) — 로컬 실험 전용, 커밋 금지.
+# 없으면 PackOpeningSetup 이 절차 생성본으로 자동 폴백한다.
+Assets/HoloCard/PackOpening/Textures/Pokemon/
+Assets/HoloCard/PackOpening/Textures/Pokemon.meta

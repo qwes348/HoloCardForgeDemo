@@ -307,6 +307,13 @@ namespace HoloCard.Editor
             mat.SetTexture(HoloCardIDs.DepthMap, LoadAny(dir, name + "_Depth"));
             mat.SetTexture(HoloCardIDs.FoilMask, LoadAny(dir, name + "_Foil"));
 
+            // 테두리 포일은 UV 를 카드 비율만큼 펴서 띠 폭을 맞춘다. 룩 값이 아니라
+            // 지오메트리라 프리셋 밖에 있고, isNew 와 무관하게 매번 다시 적는다
+            // (다시 구울 때 비율이 바뀌었을 수 있다).
+            // 임포트된 Texture2D 의 width/height 가 아니라 원본 파일 크기를 봐야 한다 —
+            // npotScale 이 리샘플하면 종횡비가 통째로 어긋난다.
+            mat.SetFloat(HoloCardIDs.CardAspect, HoloCardBaker.SourceAspect(art));
+
             if (isNew)
             {
                 var p = ScriptableObject.CreateInstance<HoloCardPreset>();

@@ -46,6 +46,19 @@ Shader "Holo/Holographic Card (UI)"
 
         [Toggle] _GammaBlend ("Composite in sRGB (poke-holo 동일)", Float) = 1
 
+
+        [Header(07 Border Foil)][Space(4)]
+        _BorderFoil       ("Border Foil", Range(0, 2))          = 0
+        _BorderWidth      ("Band Width", Range(0.005, 0.25))    = 0.055
+        _BorderInset      ("Band Inset", Range(0, 0.1))         = 0.008
+        _BorderSharp      ("Band Sharpness", Range(0.2, 6))     = 2.6
+        _BorderHue        ("Hue Cycles", Range(0.5, 6))         = 2
+        _BorderShift      ("Tilt Response", Range(0, 5))        = 1.6
+        _BorderStreak     ("Streaks", Range(0, 1))              = 0.55
+        _BorderStreakScale ("Streak Density", Range(4, 80))     = 26
+        [Space(4)] _BorderRadius ("Corner Radius (카드 높이 = 1)", Range(0, 0.2)) = 0.034
+        _CardAspect       ("Card Aspect (w / h)", Range(0.3, 2)) = 0.727
+
         [Header(View Source)][Space(4)]
         // UI 는 캔버스 모드에 따라 카메라 시선이 의미 없을 수 있어 기본값이 1(컨트롤러).
         _ViewBlend      ("Camera 0 - 1 Controller", Range(0, 1)) = 1

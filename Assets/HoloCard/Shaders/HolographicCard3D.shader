@@ -43,6 +43,19 @@ Shader "Holo/Holographic Card (3D)"
         _Bevel          ("Bevel", Range(0, 1))      = 0.18
         _BevelWidth     ("Bevel Width", Range(0.001, 0.2)) = 0.035
 
+
+        [Header(07 Border Foil)][Space(4)]
+        _BorderFoil       ("Border Foil", Range(0, 2))          = 0
+        _BorderWidth      ("Band Width", Range(0.005, 0.25))    = 0.055
+        _BorderInset      ("Band Inset", Range(0, 0.1))         = 0.008
+        _BorderSharp      ("Band Sharpness", Range(0.2, 6))     = 2.6
+        _BorderHue        ("Hue Cycles", Range(0.5, 6))         = 2
+        _BorderShift      ("Tilt Response", Range(0, 5))        = 1.6
+        _BorderStreak     ("Streaks", Range(0, 1))              = 0.55
+        _BorderStreakScale ("Streak Density", Range(4, 80))     = 26
+        [Space(4)] _BorderRadius ("Corner Radius (카드 높이 = 1)", Range(0, 0.2)) = 0.034
+        _CardAspect       ("Card Aspect (w / h)", Range(0.3, 2)) = 0.727
+
         [Header(Environment)][Space(4)]
         _EnvIntensity   ("Reflection Probe", Range(0, 2)) = 0
         _EnvRoughness   ("Reflection Blur", Range(0, 1))  = 0.15

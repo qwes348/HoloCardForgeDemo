@@ -8,35 +8,50 @@ namespace HoloCard.PackOpening
     /// <summary>
     /// 카드팩 개봉 연출.
     ///
-    ///   Idle      팩이 떠 있고 포인터를 따라 기운다. 클릭하면 시작.
-    ///   Tearing   상단 스트립이 찢겨 날아가고 포일 조각이 터진다.
-    ///   Dealing   카드가 팩 입구에서 한 장씩 뒷면으로 솟아 부채꼴로 깔린다.
-    ///   Browsing  카드를 클릭하면 뒤집히며 확대된다 (HoloCardInspector 가 맡는다).
+    ///   Idle       팩이 떠 있고 포인터를 따라 기운다. 클릭하면 시작.
+    ///   Tearing    광선이 팩을 가르고 상단 스트립이 날아간다. 팩은 아래로 내려앉는다.
+    ///   Revealing  첫 카드가 팩 입구에서 솟아오르며 커지고, 팩은 그 자리에서 사라진다.
+    ///   Browsing   <see cref="CardCarousel"/> 가 받아서 한 장씩 넘겨 본다.
     ///
-    /// 카드가 뒷면으로 깔리는 게 핵심이다. HoloCardInspector 는 확대할 때 카드를
-    /// 카메라 정면으로 돌리는데, 뒷면 상태에서 그러면 그 회전 자체가 곧 "뒤집기"가
-    /// 된다. 별도의 뒤집기 코드가 필요 없다.
+    /// 카드가 팩 **속에서** 나와야 한다. 그래서 카드를 팩 앞이 아니라 봉지 두께
+    /// 안쪽(<see cref="revealCardDepth"/>)에 세운다. 팩 앞면이 불투명하니 깊이만으로
+    /// 아랫동강이 가려지고, 입구 위로 올라온 부분부터 보이기 시작한다. 앞에 두면
+    /// 카드가 처음부터 통째로 보여서 "꺼낸다" 가 아니라 "떠 있다" 가 된다.
     ///
     /// R 키로 다시 뽑는다.
     /// </summary>
     [AddComponentMenu("Holo Card/Pack Opening Director")]
     public class PackOpeningDirector : MonoBehaviour
     {
-        public enum Stage { Idle, Tearing, Dealing, Browsing }
+        public enum Stage { Idle, Tearing, Revealing, Browsing }
 
         [Header("Scene")]
         public CardPack pack;
         public Transform cardPool;
-        public HoloCardInspector inspector;
+        public CardCarousel carousel;
+        [Tooltip("카드 밑의 ◇/★ 표식과 NEW 뱃지.")]
+        public RarityDisplay rarityDisplay;
         public Camera targetCamera;
         public ParticleSystem tearBurst;
         public ParticleSystem rareBurst;
+        [Tooltip("배경 층. 레어가 나올 때 색이 흔들린다.")]
+        public PackStage stage;
+        [Tooltip("팩을 가르는 빛줄기.")]
+        public PackSlash slash;
 
         [Header("Pull")]
         [Tooltip("한 팩에서 나오는 카드 수.")]
         [Range(1, 10)] public int cardsPerPack = 5;
-        [Tooltip("그중 확정 레어 수.")]
-        [Range(0, 5)] public int guaranteedRares = 1;
+        [Tooltip("앞쪽 자리(마지막 두 장을 뺀 나머지)의 등급 확률.")]
+        public RarityOdds commonSlots = RarityOdds.Flat(72f, 24f, 4f, 0f, 0f, 0f, 0f);
+        [Tooltip("끝에서 두 번째 자리. 여기서부터 판이 열린다.")]
+        public RarityOdds fourthSlot = RarityOdds.Flat(0f, 46f, 38f, 12f, 3f, 1f, 0f);
+        [Tooltip("마지막 자리. 절정이라 가장 후하다.")]
+        public RarityOdds finalSlot = RarityOdds.Flat(0f, 0f, 30f, 34f, 22f, 10f, 4f);
+        [Tooltip("마지막 카드가 최소 이 등급은 되도록 보장한다. Common 이면 보장 없음.")]
+        public CardRarity guaranteedFinale = CardRarity.ArtRare;
+        [Tooltip("이 등급부터 무지개 번쩍임·스파클 폭발·NEW 뱃지가 붙는다.")]
+        public CardRarity rareThreshold = CardRarity.ArtRare;
 
         [Header("Pack Idle")]
         public float bobAmplitude = 0.035f;
@@ -44,31 +59,46 @@ namespace HoloCard.PackOpening
         public float packTiltAngle = 14f;
         public float packFollow = 7f;
 
-        [Header("Timing")]
-        public float tearDuration = 0.55f;
-        public float dealInterval = 0.13f;
-        public float dealDuration = 0.45f;
-        [Tooltip("레어가 나올 때 추가로 머무는 시간.")]
-        public float rarePause = 0.45f;
+        [Header("Tearing")]
+        [Tooltip("광선이 지나간 뒤 조각이 떨어지기까지의 뜸. 이게 0 이면 무엇이 잘랐는지 안 읽힌다.")]
+        public float slashHold = 0.13f;
+        [Tooltip("잘린 윗동강이 날아가는 시간.")]
+        public float stripFlyTime = 0.85f;
+        [Tooltip("스트립이 날아가는 동안 팩이 내려앉는 거리. 입구가 화면 가운데보다 " +
+                 "아래로 내려가야 카드가 솟아오를 자리가 생긴다.")]
+        public float packSinkY = 0.72f;
+        public float packSinkTime = 0.42f;
 
-        [Header("Fan Layout")]
-        [Tooltip("카드 간격. 카드 폭(약 0.64)보다 커야 서로 겹치지 않는다.")]
-        public float fanSpacing = 0.70f;
-        public float fanArcAngle = 11f;
-        [Tooltip("가장자리 카드를 뒤로 미는 정도. 겹칠 때 가운데가 앞에 오게 한다.")]
-        public float fanDepthStep = 0.06f;
-        public float fanDrop = 0.02f;
+        [Header("Reveal")]
+        [Tooltip("팩이 내려앉고 카드가 나오기까지의 뜸.")]
+        public float revealDelay = 0.16f;
+        [Tooltip("카드가 입구에서 제자리까지 솟는 시간.")]
+        public float riseTime = 0.32f;
+        [Tooltip("입구를 갓 지날 때의 카드 크기. 봉지 폭보다 좁아 보여야 한다.")]
+        [Range(0.3f, 1f)] public float revealStartScale = 0.66f;
+        [Tooltip("시작 위치를 입구보다 이만큼 더 내린다. 0 이면 첫 프레임부터 카드 윗변이 보인다.")]
+        public float revealTuck = 0.035f;
+        [Tooltip("카드를 세우는 봉지 두께 안쪽 깊이. 앞면보다 뒤, 뒷면보다 앞이어야 한다.")]
+        public float revealCardDepth = 0.006f;
+        [Tooltip("카드가 얼마쯤 나왔을 때 팩이 빠지기 시작할지 (솟는 시간 비율).")]
+        [Range(0f, 1f)] public float packExitAt = 0.26f;
+        [Tooltip("팩이 화면 밖 아래로 빠지는 데 걸리는 시간.")]
+        public float packExitTime = 0.46f;
+        [Tooltip("빠져나가는 거리. 화면 아래 끝을 넉넉히 넘겨야 사라지는 순간이 안 보인다.")]
+        public float packExitDrop = 1.6f;
+        [Tooltip("빠지면서 도는 각도. 살짝 기울어야 떨어지는 무게가 붙는다.")]
+        public float packExitSpin = -22f;
 
         [Header("Camera")]
         [Tooltip("팩을 보여줄 때의 카메라 거리.")]
-        public float packCameraDistance = 2.6f;
-        [Tooltip("카드가 다 깔린 뒤 물러날 거리. 부채꼴이 다 들어와야 한다.")]
-        public float fanCameraDistance = 3.6f;
-        public float cameraDollyTime = 0.8f;
+        public float packCameraDistance = 3.3f;
+        [Tooltip("카드를 볼 때의 거리. 카드가 나오는 동안 여기까지 들어온다.")]
+        public float carouselCameraDistance = 2.35f;
+        public float cameraDollyTime = 0.55f;
 
-        [Header("Pack Exit")]
-        [Tooltip("카드가 나오는 동안 팩을 뒤로 밀어 카드와 겹치지 않게 한다.")]
-        public float packRecedeZ = 0.75f;
+        [Header("Rare")]
+        [Tooltip("레어 카드가 자리에 앉을 때의 배경 번쩍임 세기.")]
+        [Range(0f, 1f)] public float rareFlash = 1f;
 
         Stage _stage = Stage.Idle;
         readonly List<HoloCardController> _pulled = new List<HoloCardController>();
@@ -102,17 +132,32 @@ namespace HoloCard.PackOpening
                 _stripHomeRotation = Quaternion.identity;
             }
 
-            if (inspector != null) inspector.enabled = false;
+            if (carousel != null)
+            {
+                carousel.Settled -= OnCardSettled;
+                carousel.Settled += OnCardSettled;
+                carousel.Changed -= OnCardChanged;
+                carousel.Changed += OnCardChanged;
+            }
         }
 
         void Start() => ResetToIdle();
 
-        void OnDestroy() => _sequence?.Kill();
+        void OnDestroy()
+        {
+            _sequence?.Kill();
+            if (carousel != null)
+            {
+                carousel.Settled -= OnCardSettled;
+                carousel.Changed -= OnCardChanged;
+            }
+        }
 
         void Update()
         {
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.rKey.wasPressedThisFrame && _stage != Stage.Tearing && _stage != Stage.Dealing)
+            if (keyboard != null && keyboard.rKey.wasPressedThisFrame &&
+                _stage != Stage.Tearing && _stage != Stage.Revealing)
                 ResetToIdle();
 
             if (_stage == Stage.Idle)
@@ -160,6 +205,7 @@ namespace HoloCard.PackOpening
 
             _stage = Stage.Tearing;
             PickCards();
+            if (carousel != null) carousel.Bind(_pulled);
 
             _sequence?.Kill();
             _sequence = DOTween.Sequence();
@@ -167,53 +213,73 @@ namespace HoloCard.PackOpening
             Transform strip = pack.Strip;
             if (strip != null)
             {
-                // 뜯기 직전 짧게 긴장 — 살짝 눌렀다가 튀어나간다.
-                _sequence.Append(pack.transform.DOPunchPosSafe());
-                _sequence.Join(strip.DOLocalMoveY(_stripHome.y + 0.55f, tearDuration).SetEase(Ease.InQuad));
-                _sequence.Join(strip.DOLocalMoveX(_stripHome.x + 0.28f, tearDuration).SetEase(Ease.InQuad));
-                _sequence.Join(strip.DOLocalRotate(new Vector3(28f, 0f, -46f), tearDuration, RotateMode.LocalAxisAdd)
-                                    .SetEase(Ease.OutQuad));
-                _sequence.InsertCallback(0.06f, () =>
+                // ── 광선이 먼저 지나가고, 뜸을 들인 뒤에 조각이 떨어진다.
+                //    동시에 터뜨리면 "빛이 갈랐다" 가 아니라 그냥 같이 터진 걸로 읽힌다.
+                _sequence.AppendCallback(() =>
                 {
+                    if (slash != null) slash.Play(pack.MouthLocalY);
                     if (tearBurst != null) { tearBurst.transform.position = MouthWorldPosition(); tearBurst.Play(true); }
                 });
+                // 베인 순간 팩이 한 번 움찔한다.
+                _sequence.Join(pack.transform.DOPunchPosSafe());
+                _sequence.AppendInterval(slashHold);
+
+                // 윗동강이 3D 로 텀블링하며 우상단으로 날아가 작아진다.
+                _sequence.Append(strip.DOLocalMove(_stripHome + new Vector3(0.62f, 1.55f, -0.4f), stripFlyTime)
+                                      .SetEase(Ease.OutQuad));
+                _sequence.Join(strip.DOLocalRotate(new Vector3(-430f, 200f, -150f), stripFlyTime,
+                                                   RotateMode.LocalAxisAdd).SetEase(Ease.OutQuad));
+                _sequence.Join(strip.DOScale(Vector3.one * 0.32f, stripFlyTime).SetEase(Ease.InQuad));
+
+                // 뜯긴 팩이 그 무게로 내려앉는다. 스트립이 아직 날아가는 중에
+                // 겹쳐서 시작해야 두 동작이 한 사건으로 읽힌다.
+                _sequence.Join(pack.transform.DOLocalMoveY(_packHome.y - packSinkY, packSinkTime)
+                                             .SetEase(Ease.OutCubic));
                 _sequence.AppendCallback(() => strip.gameObject.SetActive(false));
             }
 
-            // 팩을 뒤로 물린다. 카드는 카메라 쪽(작은 z)에 깔리므로 이렇게 해야
-            // 메시가 겹치지 않는다. 동시에 카메라도 물러나 부채꼴을 담을 준비를 한다.
-            _sequence.Append(pack.transform.DOLocalMoveZ(_packHome.z + packRecedeZ, 0.35f).SetEase(Ease.OutCubic));
-            _sequence.Join(pack.transform.DOLocalMoveY(_packHome.y - 0.12f, 0.35f).SetEase(Ease.OutCubic));
-            if (targetCamera != null)
-                _sequence.Join(targetCamera.transform.DOMoveZ(-fanCameraDistance, cameraDollyTime).SetEase(Ease.InOutCubic));
-
-            _sequence.AppendCallback(() => _stage = Stage.Dealing);
-            AppendDeal(_sequence);
+            _sequence.AppendInterval(revealDelay);
+            _sequence.AppendCallback(() => _stage = Stage.Revealing);
+            AppendReveal(_sequence);
             _sequence.AppendCallback(EnterBrowsing);
         }
 
-        /// <summary>풀에서 이번 팩에 나올 카드를 뽑는다. 확정 레어를 보장한다.</summary>
+        /// <summary>
+        /// 이번 팩에 나올 카드를 뽑는다.
+        ///
+        /// 자리마다 다른 확률표를 쓴다. 전부 같은 표로 굴리면 다섯 장이 그냥
+        /// 무작위 다섯 장이라 "점점 좋아진다" 는 흐름이 안 생긴다. 앞자리는
+        /// ◇ 위주, 끝에서 두 번째부터 열리고, 마지막 자리가 판을 뒤집는다.
+        ///
+        /// 뽑은 뒤 등급 오름차순으로 세운다. 넘겨 볼 때 절정이 마지막에 와야
+        /// 한다 — 첫 장이 제일 좋으면 나머지는 소화 과정이 된다.
+        /// </summary>
         void PickCards()
         {
             _pulled.Clear();
             if (_pool.Count == 0) return;
 
-            var rares = new List<HoloCardInfo>();
-            var normals = new List<HoloCardInfo>();
-            foreach (var info in _pool) (info.isRare ? rares : normals).Add(info);
+            // 등급별 바구니. 풀에 없는 등급이 있어도 뽑기표는 그 등급을 굴리므로
+            // 가장 가까운 등급으로 대신 집는다.
+            int tiers = (int)CardRarity.Immersive + 1;
+            var buckets = new List<HoloCardInfo>[tiers];
+            for (int i = 0; i < tiers; i++) buckets[i] = new List<HoloCardInfo>();
+            foreach (var info in _pool) buckets[(int)info.rarity].Add(info);
 
             var chosen = new List<HoloCardInfo>();
-            int rareCount = Mathf.Min(guaranteedRares, rares.Count);
-            TakeRandom(rares, rareCount, chosen);
-            TakeRandom(normals, Mathf.Max(0, cardsPerPack - rareCount), chosen);
+            for (int slot = 0; slot < cardsPerPack; slot++)
+            {
+                bool last = slot == cardsPerPack - 1;
+                CardRarity want = OddsFor(slot).Roll();
+                if (last && want < guaranteedFinale) want = guaranteedFinale;
 
-            // 모자라면 남은 데서 채운다.
-            var leftovers = new List<HoloCardInfo>();
-            foreach (var info in _pool) if (!chosen.Contains(info)) leftovers.Add(info);
-            TakeRandom(leftovers, cardsPerPack - chosen.Count, chosen);
+                // 절정 자리는 못 채우면 **위로** 올려 잡는다. 아래로 내리면
+                // 보장이 깨진다.
+                HoloCardInfo pick = TakeNearest(buckets, want, preferUp: last);
+                if (pick != null) chosen.Add(pick);
+            }
 
-            // 레어를 마지막에 배치해 절정에서 나오게 한다.
-            chosen.Sort((a, b) => a.isRare.CompareTo(b.isRare));
+            chosen.Sort((a, b) => ((int)a.rarity).CompareTo((int)b.rarity));
 
             foreach (var info in chosen)
             {
@@ -222,124 +288,141 @@ namespace HoloCard.PackOpening
             }
         }
 
-        static void TakeRandom(List<HoloCardInfo> from, int count, List<HoloCardInfo> into)
+        RarityOdds OddsFor(int slot)
         {
-            for (int i = 0; i < count && from.Count > 0; i++)
-            {
-                int k = Random.Range(0, from.Count);
-                into.Add(from[k]);
-                from.RemoveAt(k);
-            }
+            if (slot >= cardsPerPack - 1) return finalSlot;
+            if (slot >= cardsPerPack - 2) return fourthSlot;
+            return commonSlots;
         }
 
-        void AppendDeal(Sequence sequence)
+        /// <summary>
+        /// 원하는 등급에서 한 장 꺼낸다. 비어 있으면 가장 가까운 등급으로
+        /// 번져 나가며 찾는다. 꺼낸 카드는 바구니에서 빼므로 한 팩에 같은 카드가
+        /// 두 번 나오지 않는다.
+        /// </summary>
+        static HoloCardInfo TakeNearest(List<HoloCardInfo>[] buckets, CardRarity want, bool preferUp)
         {
-            Vector3 mouth = MouthLocalPosition();
+            int n = buckets.Length;
+            int w = Mathf.Clamp((int)want, 0, n - 1);
 
-            for (int i = 0; i < _pulled.Count; i++)
+            for (int step = 0; step < n; step++)
             {
-                HoloCardController card = _pulled[i];
-                int index = i;
-                var info = card.GetComponent<HoloCardInfo>();
-                bool rare = info != null && info.isRare;
+                int first = preferUp ? w + step : w - step;
+                int second = preferUp ? w - step : w + step;
 
-                GetFanPose(index, _pulled.Count, out Vector3 pose, out Quaternion rot);
-
-                sequence.AppendCallback(() =>
-                {
-                    card.gameObject.SetActive(true);
-                    Transform t = card.transform;
-                    t.localPosition = mouth;
-                    t.localScale = Vector3.one * 0.82f;
-                    // 뒷면이 카메라를 보게 세워 둔다. 확대할 때의 회전이 곧 뒤집기가 된다.
-                    t.localRotation = Quaternion.Euler(0f, 180f, 0f);
-                    card.SetHome(mouth, t.localRotation);
-                    card.enabled = false;
-                });
-
-                sequence.Append(card.transform.DOLocalMove(pose, dealDuration).SetEase(Ease.OutBack, 1.1f));
-                sequence.Join(card.transform.DOLocalRotateQuaternion(rot, dealDuration).SetEase(Ease.OutCubic));
-                sequence.Join(card.transform.DOScale(Vector3.one, dealDuration).SetEase(Ease.OutCubic));
-
-                sequence.AppendCallback(() =>
-                {
-                    card.SetHome(pose, rot);
-                    if (rare && rareBurst != null)
-                    {
-                        rareBurst.transform.position = card.transform.position;
-                        rareBurst.Play(true);
-                    }
-                });
-
-                if (rare)
-                {
-                    sequence.Append(card.transform.DOPunchScale(Vector3.one * 0.12f, 0.34f, 8, 0.7f));
-                    sequence.AppendInterval(rarePause);
-                }
-                else
-                {
-                    sequence.AppendInterval(dealInterval);
-                }
+                if (first >= 0 && first < n && buckets[first].Count > 0) return Draw(buckets[first]);
+                if (second >= 0 && second < n && buckets[second].Count > 0) return Draw(buckets[second]);
             }
+            return null;
+        }
 
-            // 빈 팩은 마지막 카드가 나오자마자 떨어뜨린다. 남겨 두면 부채꼴을 가린다.
-            sequence.Insert(sequence.Duration() - 0.15f,
-                pack.transform.DOLocalMoveY(_packHome.y - 2.6f, 0.65f).SetEase(Ease.InCubic));
-            sequence.Join(pack.transform.DOLocalRotate(new Vector3(0f, 0f, -28f), 0.65f, RotateMode.LocalAxisAdd));
-            sequence.AppendCallback(() => pack.gameObject.SetActive(false));
+        static HoloCardInfo Draw(List<HoloCardInfo> from)
+        {
+            int k = Random.Range(0, from.Count);
+            HoloCardInfo picked = from[k];
+            from.RemoveAt(k);
+            return picked;
+        }
+
+        // ── 첫 카드가 솟아오른다 ─────────────────────────────────────────
+
+        void AppendReveal(Sequence sequence)
+        {
+            if (carousel == null || _pulled.Count == 0) return;
+
+            HoloCardController card = _pulled[0];
+            Transform track = carousel.transform;
+            Transform t = card.transform;
+
+            sequence.AppendCallback(() =>
+            {
+                // 팩이 다 내려앉은 **뒤에** 입구를 물어야 맞다. 시퀀스를 짤 때
+                // 계산해 두면 아직 안 내려간 자리가 잡힌다.
+                float half = CardHalfHeight(card) * revealStartScale;
+                Vector3 start = track.InverseTransformPoint(MouthWorldPosition());
+                start.y -= half + revealTuck;
+                start.z = revealCardDepth;
+
+                card.gameObject.SetActive(true);
+                card.enabled = false;                       // 트윈이 끝날 때까지 컨트롤러는 쉰다
+                t.localPosition = start;
+                t.localRotation = Quaternion.identity;      // 앞면이 카메라를 본다
+                t.localScale = Vector3.one * revealStartScale;
+                card.SetHome(start, Quaternion.identity);
+            });
+
+            // 솟기 시작하는 시각을 **미리** 잡아 둔다. 나중에 Duration 에서 빼면
+            // 같이 Join 한 카메라 돌리(더 길다)까지 세어져서 어긋난다.
+            float riseStart = sequence.Duration(false);
+
+            // 살짝 지나쳤다 내려앉는다. 레퍼런스에서 카드는 딱 멈추지 않는다.
+            sequence.Append(t.DOLocalMove(carousel.StackPosition(0), riseTime)
+                             .SetEase(Ease.OutBack, 1.04f));
+            // 크기는 **늦게** 따라온다. OutCubic 으로 앞에서 다 키워 버리면 카드가
+            // 반도 안 나왔는데 이미 봉지만큼 넓어져서, 봉지에서 나온 게 아니라
+            // 봉지 뒤에 있던 판이 올라오는 걸로 읽힌다.
+            sequence.Join(t.DOScale(Vector3.one, riseTime).SetEase(Ease.InOutSine));
+
+            if (targetCamera != null)
+                sequence.Join(targetCamera.transform.DOMoveZ(-carouselCameraDistance, cameraDollyTime)
+                                                    .SetEase(Ease.InOutCubic));
+
+            // 카드가 반쯤 나온 시점부터 빈 봉지가 화면 밖 아래로 빠진다.
+            // 제자리에서 줄어들면 "없어졌다" 로만 읽히고 어디로 갔는지 안 남는다.
+            // 가속(InCubic)으로 빠져야 손에서 놓은 무게가 붙는다.
+            float exitAt = riseStart + riseTime * packExitAt;
+            sequence.Insert(exitAt, pack.transform
+                .DOLocalMoveY(_packHome.y - packSinkY - packExitDrop, packExitTime).SetEase(Ease.InCubic));
+            sequence.Insert(exitAt, pack.transform
+                .DOLocalRotate(new Vector3(0f, 0f, packExitSpin), packExitTime, RotateMode.LocalAxisAdd)
+                .SetEase(Ease.InQuad));
+            sequence.InsertCallback(exitAt + packExitTime, () => pack.gameObject.SetActive(false));
+        }
+
+        static float CardHalfHeight(HoloCardController card)
+        {
+            var r = card.GetComponent<Renderer>();
+            return r != null && r.localBounds.size.y > 1e-4f ? r.localBounds.size.y * 0.5f : 0.44f;
         }
 
         void EnterBrowsing()
         {
             _stage = Stage.Browsing;
+            if (carousel != null) carousel.Begin(0);
+        }
 
-            foreach (var card in _pulled)
-                card.enabled = true;
-
-            if (inspector == null) return;
-            inspector.enabled = true;
-            inspector.Rescan();
-            inspector.FocusChanged -= OnFocusChanged;
-            inspector.FocusChanged += OnFocusChanged;
+        /// <summary>카드가 치워지기 시작하면 표식도 같이 걷는다.</summary>
+        void OnCardChanged(HoloCardController card, int index)
+        {
+            if (rarityDisplay != null) rarityDisplay.Hide();
         }
 
         /// <summary>
-        /// 한 번 확대해서 앞면을 본 카드는 그 뒤로도 앞면을 유지한다.
-        /// 확대를 풀면 원래 자리로 돌아가되 뒤집힌 채로 남는다.
+        /// 새 카드가 자리에 앉았다. 등급 표식이 하나씩 뜨고, 레어면 배경까지
+        /// 같이 반응한다. 카드에만 파티클을 뿌리면 아무리 뿌려도 밋밋하다.
         /// </summary>
-        void OnFocusChanged(HoloCardController card)
+        void OnCardSettled(HoloCardController card, int index)
         {
             if (card == null) return;
+            var info = card.GetComponent<HoloCardInfo>();
+            if (info == null) return;
 
-            int index = _pulled.IndexOf(card);
-            if (index < 0) return;
+            bool rare = info.rarity >= rareThreshold;
 
-            GetFanPose(index, _pulled.Count, out Vector3 pose, out Quaternion rot);
-            // Y 180 을 뺀 = 앞면이 보이는 자세
-            Quaternion faceUp = rot * Quaternion.Euler(0f, 180f, 0f);
-            inspector.SetHome(card, pose, faceUp);
+            if (rarityDisplay != null && carousel != null)
+                rarityDisplay.Show(info, carousel.CardWidth, carousel.CardHeight, rare);
+
+            if (!rare) return;
+
+            if (stage != null) stage.FlashRare(rareFlash);
+            if (rareBurst != null)
+            {
+                rareBurst.transform.position = card.transform.position;
+                rareBurst.Play(true);
+            }
         }
 
-        // ── 배치 ─────────────────────────────────────────────────────────
-
-        void GetFanPose(int index, int count, out Vector3 position, out Quaternion rotation)
-        {
-            float x = (index - (count - 1) * 0.5f) * fanSpacing;
-            float z = Mathf.Abs(x) * fanDepthStep;
-            float y = -Mathf.Abs(x) * fanDrop;
-
-            position = new Vector3(x, y, z);
-            // 뒷면이 보이도록 Y 180 을 얹은 상태가 기본 자세다.
-            rotation = Quaternion.Euler(0f, 180f - x * fanArcAngle, 0f);
-        }
-
-        Vector3 MouthLocalPosition()
-        {
-            if (pack == null) return Vector3.zero;
-            Vector3 world = MouthWorldPosition();
-            Transform parent = cardPool != null ? cardPool.parent : null;
-            return parent != null ? parent.InverseTransformPoint(world) : world;
-        }
+        // ── 좌표 ─────────────────────────────────────────────────────────
 
         Vector3 MouthWorldPosition()
         {
@@ -357,16 +440,13 @@ namespace HoloCard.PackOpening
             // 카메라를 팩 거리로 되돌린다. 안 그러면 다시 뽑기 때 팩이 멀리 있다.
             if (targetCamera != null)
             {
+                targetCamera.transform.DOKill();
                 Vector3 p = targetCamera.transform.position;
                 targetCamera.transform.position = new Vector3(p.x, p.y, -packCameraDistance);
             }
 
-            if (inspector != null)
-            {
-                inspector.Focus(-1);
-                inspector.FocusChanged -= OnFocusChanged;
-                inspector.enabled = false;
-            }
+            if (carousel != null) carousel.Clear();
+            if (rarityDisplay != null) rarityDisplay.HideImmediate();
 
             foreach (var info in _pool)
             {
@@ -378,14 +458,20 @@ namespace HoloCard.PackOpening
 
             if (pack == null) return;
 
+            pack.transform.DOKill();
             pack.gameObject.SetActive(true);
             pack.transform.localPosition = _packHome;
             pack.transform.localRotation = _packHomeRotation;
+            pack.transform.localScale = Vector3.one;
+            if (slash != null) slash.Hide();
+
             if (pack.Strip != null)
             {
+                pack.Strip.DOKill();
                 pack.Strip.gameObject.SetActive(true);
                 pack.Strip.localPosition = _stripHome;
                 pack.Strip.localRotation = _stripHomeRotation;
+                pack.Strip.localScale = Vector3.one;
             }
         }
     }

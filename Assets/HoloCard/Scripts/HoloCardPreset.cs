@@ -36,6 +36,19 @@ namespace HoloCard
         public static readonly int Bevel            = Shader.PropertyToID("_Bevel");
         public static readonly int BevelWidth       = Shader.PropertyToID("_BevelWidth");
 
+        public static readonly int BorderFoil        = Shader.PropertyToID("_BorderFoil");
+        public static readonly int BorderWidth       = Shader.PropertyToID("_BorderWidth");
+        public static readonly int BorderInset       = Shader.PropertyToID("_BorderInset");
+        public static readonly int BorderSharp       = Shader.PropertyToID("_BorderSharp");
+        public static readonly int BorderHue         = Shader.PropertyToID("_BorderHue");
+        public static readonly int BorderShift       = Shader.PropertyToID("_BorderShift");
+        public static readonly int BorderStreak      = Shader.PropertyToID("_BorderStreak");
+        public static readonly int BorderStreakScale = Shader.PropertyToID("_BorderStreakScale");
+
+        // 룩이 아니라 지오메트리다. 프리셋에 넣지 않고 메시에서 받아 적는다.
+        public static readonly int BorderRadius      = Shader.PropertyToID("_BorderRadius");
+        public static readonly int CardAspect        = Shader.PropertyToID("_CardAspect");
+
         // 컨트롤러가 매 프레임 써넣는 값
         public static readonly int PointerUV        = Shader.PropertyToID("_PointerUV");
         public static readonly int Tilt             = Shader.PropertyToID("_Tilt");
@@ -92,6 +105,16 @@ namespace HoloCard
         [Range(0f, 1f)]      public float bevel        = 0.18f;
         [Range(0.001f, 0.2f)] public float bevelWidth  = 0.035f;
 
+        [Header("07 Border Foil")]
+        [Range(0f, 2f)]        public float borderFoil        = 0f;
+        [Range(0.005f, 0.25f)] public float borderWidth       = 0.055f;
+        [Range(0f, 0.1f)]      public float borderInset       = 0.008f;
+        [Range(0.2f, 6f)]      public float borderSharp       = 2.6f;
+        [Range(0.5f, 6f)]      public float borderHue         = 2f;
+        [Range(0f, 5f)]        public float borderShift       = 1.6f;
+        [Range(0f, 1f)]        public float borderStreak      = 0.55f;
+        [Range(4f, 80f)]       public float borderStreakScale = 26f;
+
         public void ApplyTo(Material m)
         {
             if (m == null) return;
@@ -124,6 +147,15 @@ namespace HoloCard
             m.SetFloat(HoloCardIDs.RimPower,     rimPower);
             m.SetFloat(HoloCardIDs.Bevel,        bevel);
             m.SetFloat(HoloCardIDs.BevelWidth,   bevelWidth);
+
+            m.SetFloat(HoloCardIDs.BorderFoil,        borderFoil);
+            m.SetFloat(HoloCardIDs.BorderWidth,       borderWidth);
+            m.SetFloat(HoloCardIDs.BorderInset,       borderInset);
+            m.SetFloat(HoloCardIDs.BorderSharp,       borderSharp);
+            m.SetFloat(HoloCardIDs.BorderHue,         borderHue);
+            m.SetFloat(HoloCardIDs.BorderShift,       borderShift);
+            m.SetFloat(HoloCardIDs.BorderStreak,      borderStreak);
+            m.SetFloat(HoloCardIDs.BorderStreakScale, borderStreakScale);
         }
 
         public void CaptureFrom(Material m)
@@ -158,6 +190,15 @@ namespace HoloCard
             rimPower     = m.GetFloat(HoloCardIDs.RimPower);
             bevel        = m.GetFloat(HoloCardIDs.Bevel);
             bevelWidth   = m.GetFloat(HoloCardIDs.BevelWidth);
+
+            borderFoil        = m.GetFloat(HoloCardIDs.BorderFoil);
+            borderWidth       = m.GetFloat(HoloCardIDs.BorderWidth);
+            borderInset       = m.GetFloat(HoloCardIDs.BorderInset);
+            borderSharp       = m.GetFloat(HoloCardIDs.BorderSharp);
+            borderHue         = m.GetFloat(HoloCardIDs.BorderHue);
+            borderShift       = m.GetFloat(HoloCardIDs.BorderShift);
+            borderStreak      = m.GetFloat(HoloCardIDs.BorderStreak);
+            borderStreakScale = m.GetFloat(HoloCardIDs.BorderStreakScale);
         }
 
         /// <summary>
@@ -182,6 +223,8 @@ namespace HoloCard
             sparkleIntensity = 0.6f; sparkleDensity = 130f; sparklePower = 45f; sparkleDepth = 0.35f;
             glareIntensity = 0.32f; glareSize = 0.7f; glarePower = 2.2f; sheenIntensity = 0.08f;
             rimIntensity = 0.25f; rimPower = 2.5f; bevel = 0.18f; bevelWidth = 0.035f;
+            borderFoil = 0f; borderWidth = 0.055f; borderInset = 0.008f; borderSharp = 2.6f;
+            borderHue = 2f; borderShift = 1.6f; borderStreak = 0.55f; borderStreakScale = 26f;
 
             switch (kind)
             {
@@ -190,6 +233,9 @@ namespace HoloCard
                     holoContrast = 1.9f; holoBlend = 0.62f;
                     sparkleIntensity = 1.1f; sparkleDensity = 190f;
                     parallaxDepth = 0.075f;
+                    // 레인보우 레어의 정체는 넓은 테두리 포일이다. 띠를 굵게 잡고
+                    // 색상환을 한 바퀴 반만 돌려 변마다 다른 색이 서게 한다.
+                    borderFoil = 1.0f; borderWidth = 0.075f; borderHue = 1.5f;
                     break;
 
                 case Builtin.GalaxyFoil:
@@ -246,6 +292,10 @@ namespace HoloCard
                     glareIntensity = 0.10f; glareSize = 0.45f; glarePower = 3.2f;
                     sheenIntensity = 0.06f;
                     bevel = 0.08f; rimIntensity = 0.18f;
+                    // 풀아트는 인쇄면이 가장자리까지 차 있어서 안쪽 연출로는 카드
+                    // 경계가 안 잡힌다. 테두리 포일이 그 윤곽을 그어 준다.
+                    borderFoil = 1.15f; borderWidth = 0.05f; borderHue = 2.4f;
+                    borderStreak = 0.7f; borderShift = 2.0f;
                     break;
             }
         }

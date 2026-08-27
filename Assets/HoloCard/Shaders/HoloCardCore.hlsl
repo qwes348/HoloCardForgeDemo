@@ -13,6 +13,7 @@
 //   04 마이크로 패싯 글리터          해시 기반 미세 반사면
 //   05 글레어 & 시트 반사            포인터 하이라이트 + 가우시안 밴드
 //   06 베벨 & 프레넬 림              테두리 두께감
+//   07 테두리 포일                   둘레를 도는 무지개 띠
 //
 // 수식은 아티팩트(Holo Card Forge)의 GLSL 프리뷰와 1:1 로 맞춰져 있다.
 // 프리뷰 슬라이더 값을 그대로 머티리얼에 넣으면 같은 그림이 나온다.
@@ -60,6 +61,17 @@ CBUFFER_START(UnityPerMaterial)
     float4 _RimColor;
     float  _Bevel;
     float  _BevelWidth;
+
+    float  _BorderFoil;
+    float  _BorderWidth;
+    float  _BorderInset;
+    float  _BorderSharp;
+    float  _BorderRadius;
+    float  _BorderHue;
+    float  _BorderShift;
+    float  _BorderStreak;
+    float  _BorderStreakScale;
+    float  _CardAspect;
 
     float4 _PointerUV;
     float  _Tilt;
@@ -207,6 +219,75 @@ float HoloSparkle(float2 uv, float3 v, float t)
 }
 
 // ---------------------------------------------------------------------------
+// 07 테두리 포일
+//
+// 카드 **둘레를 따라 도는** 무지개 띠. 아트 창 안의 회절(03)과는 다른 물건이고
+// 포일 마스크도 보지 않는다 — 이건 그림이 아니라 카드 **자재**의 성질이라
+// 어떤 아트 위에서도 똑같이 얹힌다 (레퍼런스의 ex 카드가 정확히 그렇다).
+//
+// 세 가지가 동시에 있어야 테두리로 읽힌다.
+//   1. 둥근 모서리를 따라가는 띠. 사각형 거리(min(u, 1-u, ...))로 잡으면 모서리
+//      안쪽으로 띠가 꺾여 들어가 각진 액자 테두리가 드러난다.
+//   2. 둘레를 따라 도는 색. 한 색으로 칠하면 그냥 빛나는 테일 뿐이다.
+//   3. 기울기로 밀리는 위상. 이게 있어야 색 띠가 테두리를 **따라 흐른다**.
+//
+// UV 는 카드 비율만큼 가로가 눌려 있다. 반드시 _CardAspect 로 펴서 계산할 것 —
+// 안 그러면 좌우 띠가 위아래 띠보다 눈에 띄게 좁아진다.
+// ---------------------------------------------------------------------------
+float HoloRoundBox(float2 p, float2 halfSize, float r)
+{
+    float2 q = abs(p) - (halfSize - r);
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
+float3 HoloBorderFoil(float2 uv, float3 v, float t, out float band)
+{
+    band = 0.0;
+    if (_BorderFoil <= 1e-4) return (float3)0.0;
+
+    // 카드 높이를 1 로 두는 좌표계. 여기서만 띠 폭이 사방에서 같다.
+    float  aspect   = max(_CardAspect, 0.05);
+    float2 p        = (uv - 0.5) * float2(aspect, 1.0);
+    float2 halfSize = float2(aspect, 1.0) * 0.5;
+    float  radius   = min(_BorderRadius, min(halfSize.x, halfSize.y));
+
+    float d = -HoloRoundBox(p, halfSize, radius);          // 안쪽이 양수
+    if (d < 0.0) return (float3)0.0;
+
+    band = exp(-pow(max(d - _BorderInset, 0.0) / max(_BorderWidth, 1e-4), 2.0) * _BorderSharp);
+    if (band <= 1e-3) { band = 0.0; return (float3)0.0; }
+
+    // 둘레 위치. atan2 는 이음매 없이 한 바퀴를 돈다 (호 길이로 재면 모서리마다
+    // 미분이 튀어서 색이 각지게 꺾인다).
+    float around = atan2(p.y, p.x) / HOLO_TAU;
+    float phase  = (v.x * 0.85 + v.y * 0.55) * _BorderShift + t * _HoloSpeed * 0.6;
+
+    float3 hue = HoloSpectrum(around * _BorderHue + phase);
+
+    // 대각 빗살. 레퍼런스의 테두리는 매끈한 그라디언트가 아니라 굵은 줄무늬다.
+    float2 sp     = HoloRot2(p, radians(_HoloAngle));
+    float  streak = 0.5 + 0.5 * sin((sp.x + sp.y * 0.4) * _BorderStreakScale + phase * 4.0);
+    streak = lerp(1.0, pow(streak, 1.6) * 1.5, saturate(_BorderStreak));
+
+    // 실제 포일은 정면에서 흰 은박에 가깝고 기울일수록 색이 산다.
+    //
+    // 세기를 abs(n.z) 로 재면 안 된다. 카드가 실제로 기우는 범위에서 n.z 는
+    // 0.8~1.0 밖에 안 움직여서 (1 - |n.z|) 가 늘 0.2 언저리다 — 아무리 기울여도
+    // 테두리가 뿌연 흰 띠로만 남는다. 화면에 투영된 기울기 length(n.xy) 로 재야
+    // 같은 범위가 0~0.5 로 펼쳐진다.
+    //
+    // 그리고 흰색과 lerp 하지 않는다. 그건 채도만 빼는 게 아니라 밝기까지 같이
+    // 올려서 중간 각도가 전부 파스텔이 된다. 같은 밝기의 회색과 섞어야 정면은
+    // 은박, 기울이면 무지개가 된다.
+    float3 n   = normalize(v);
+    float  sat = saturate(length(n.xy) * 2.2);
+    float  lum = dot(hue, float3(0.33, 0.5, 0.17));
+    float3 look = lerp((float3)(lum * 1.7), hue * 1.5, sat);
+
+    return look * band * streak;
+}
+
+// ---------------------------------------------------------------------------
 // 전체 합성
 //   uv      : 카드 UV (0..1)
 //   viewTS  : 탄젠트 스페이스 시선 벡터. z 가 표면 바깥을 향한다.
@@ -279,12 +360,23 @@ float4 HoloCardShade(TEXTURE2D_PARAM(artTex,   artSampler),
     float3 envWork = lerp(envCol, LinearToSRGB(envCol), _GammaBlend);
     col += envWork * _EnvIntensity * lerp(0.35, 1.0, foil);
 
-    // 06 - 베벨 & 프레넬 림
+    // 07 - 테두리 포일. 베벨보다 **먼저** 재 둔다.
+    float  borderBand;
+    float3 border = HoloBorderFoil(uv, v, t, borderBand) * _BorderFoil * boost;
+    float  borderMask = saturate(borderBand * _BorderFoil);
+
+    // 06 - 베벨 & 프레넬 림.
+    // 띠가 선 자리에서는 흰 베벨을 눌러 준다. 같은 자리에서 흰 베벨과 색 띠를
+    // 그냥 더하면 채도가 씻겨 나가서 테두리가 흰 덩어리로 남는다.
     float edge = HoloEdgeDist(uv, _BevelWidth);
-    col += (1.0 - edge) * _Bevel * clamp(0.35 + length(v.xy), 0.0, 1.5);
+    col += (1.0 - edge) * _Bevel * clamp(0.35 + length(v.xy), 0.0, 1.5) * (1.0 - borderMask);
 
     float rim = pow(saturate(1.0 - abs(v.z)), max(_RimPower, 0.1)) * _RimIntensity;
     col += _RimColor.rgb * rim * (1.0 - edge * 0.65);
+
+    // 띠는 포화시켜 더한다. 모서리에서는 두 변의 띠가 겹치는데 그냥 더하면
+    // 거기만 흰 덩어리가 된다.
+    col += 1.0 - exp(-max(border, 0.0));
 
     // 감마 공간에서 합성했다면 리니어로 되돌린다.
     col = lerp(col, SRGBToLinear(col), _GammaBlend);
