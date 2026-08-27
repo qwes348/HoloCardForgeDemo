@@ -231,8 +231,10 @@ poke-holo 의 `color-dodge` 는 sRGB 공간 연산이다. 프로젝트가 Linear
 팩 포장지와 카드 뒷면 도안은 저작물을 피해 `PackArtGenerator` 가 절차적으로 그린
 오리지널이다.
 
-팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 스케치팹에서 받은 제3자 저작물이라
-같이 `.gitignore` 로 뺐다 (딸려 오는 텍스처가 실제 포켓몬 팩 사진이다).
+팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 CC BY 4.0 이라 표기와 함께 커밋돼
+있다. **딸려 온 `texture/DIFFUSE.png` 만 뺐다** — 실제 팩 사진이라 업로더의
+CC BY 가 거기까지 미치지 않는다. 클린 클론에서 모델이 무지로 보이면 이것 때문이고,
+지오메트리만 쓰는 `Bake Pack Shell` 은 정상 동작한다.
 리포에는 한 번 구운 `PackOpening/Meshes/PackShell.asset` 만 들어간다.
 **이건 원본의 파생물이라 표기 의무가 따라온다** — "Trading Card Pack" by
 Mhew2 Creations (@goonmize1), CC BY 4.0. 배포·공개할 때 이 표기를 떼지 말 것.

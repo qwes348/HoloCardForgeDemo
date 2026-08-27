@@ -146,9 +146,14 @@ The Pokémon Company 저작물이라 `.gitignore` 로 제외돼 있다. 로컬�
 
 ### 제3자 에셋 표기
 
-팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 딸려 오는 텍스처가 실제 팩 사진이라
-`.gitignore` 로 제외했고, 리포에는 `PackShellBaker` 로 한 번 구운
-`PackOpening/Meshes/PackShell.asset` 만 들어간다 — **원본의 파생물이다.**
+팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 CC BY 4.0 이라 **저작자 표기와 함께
+리포에 들어 있다.** 다만 모델에 딸려 온 `texture/DIFFUSE.png` 는 실제 팩을 찍은
+**사진**이라 제외했다 — 업로더의 CC BY 는 자기 모델까지만 미치고 사진에 찍힌
+저작물에는 미치지 않는다. 클린 클론에서 임포트된 모델이 무지로 보이는 건 이 때문이고,
+`PackShellBaker` 는 지오메트리만 쓰므로 `Bake Pack Shell` 은 그대로 돌아간다.
+
+리포에는 한 번 구운 `PackOpening/Meshes/PackShell.asset` 도 함께 들어간다 —
+**원본의 파생물이다.**
 
 > "[Trading Card Pack](https://sketchfab.com/3d-models/trading-card-pack-26d1a87e47814d0ea3a710d169e3a671)"
 > by [Mhew2 Creations](https://sketchfab.com/goonmize1),

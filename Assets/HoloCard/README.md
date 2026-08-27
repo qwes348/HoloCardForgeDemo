@@ -319,10 +319,12 @@ PackOpening/
 
 ### 팩 모델 출처
 
-셸의 원본은 스케치팹에서 받은 카드팩 FBX 다.
-`Assets/HoloCard/Model/` 은 제3자 저작물이라 `.gitignore` 로 빼 두었고
-(딸려 오는 텍스처가 실제 포켓몬 팩 사진이다), 리포에는 한 번 구운
-`PackOpening/Meshes/PackShell.asset` 만 들어간다.
+셸의 원본은 스케치팹에서 받은 카드팩 FBX 다. CC BY 4.0 이라 **저작자 표기와 함께
+`Assets/HoloCard/Model/` 에 커밋돼 있다.** 딸려 온 `texture/DIFFUSE.png` 만
+`.gitignore` 로 뺐다 — 실제 팩을 찍은 사진이라 업로더의 CC BY 가 거기까지
+미치지 않는다. 그래서 클린 클론에서는 임포트된 모델이 무지로 보이지만,
+`PackShellBaker` 는 지오메트리와 UV 만 쓰므로 다시 굽는 데 지장이 없다.
+한 번 구운 `PackOpening/Meshes/PackShell.asset` 도 같이 들어간다.
 
 | | |
 |---|---|

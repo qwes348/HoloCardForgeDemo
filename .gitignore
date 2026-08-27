@@ -117,10 +117,15 @@ InitTestScene*.unity*
 Assets/HoloCard/Textures/Pokemon/
 Assets/HoloCard/Textures/Pokemon.meta
 
-# 스케치팹에서 받은 카드팩 원본 모델 (제3자 저작물). PackShellBaker 로 한 번 구운
-# Meshes/PackShell.asset 만 커밋한다. 다시 구우려면 원본을 로컬에 다시 받을 것.
-Assets/HoloCard/Model/
-Assets/HoloCard/Model.meta
+# 팩 모델에 딸려 온 텍스처는 실제 포켓몬 팩을 찍은 **사진**이다. 업로더의 CC BY 는
+# 자기 모델까지만 미치고 사진에 찍힌 저작물에는 미치지 않으므로 이것만 뺀다.
+# 메시(cardpack2.fbx)는 CC BY 4.0 이라 저작자 표기와 함께 커밋한다
+# — README 의 "제3자 에셋 표기" 참고. 클린 클론에서는 텍스처가 없어 임포트된
+# 모델이 무지(無地)로 보이지만, PackShellBaker 는 지오메트리만 쓰므로 상관없다.
+Assets/HoloCard/Model/**/texture/
+Assets/HoloCard/Model/**/texture.meta
+Assets/HoloCard/Model/**/textures/
+Assets/HoloCard/Model/**/textures.meta
 
 # 실제 카드 뒷면 스캔 / 팩 사진 (The Pokemon Company 저작물) — 로컬 실험 전용, 커밋 금지.
 # 없으면 PackOpeningSetup 이 절차 생성본으로 자동 폴백한다.
