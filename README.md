@@ -142,9 +142,17 @@ The Pokémon Company 저작물이라 `.gitignore` 로 제외돼 있다. 로컬�
 씬의 텍스처 참조가 비어 있다. 다운로드 후 씬을 다시 생성하면 복구된다.
 
 팩 포장지와 카드 뒷면 도안, 배경·이펙트·UI 표식은 저작물을 피해 절차적으로 그린
-오리지널이다. 팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 스케치팹에서 받은 제3자
-저작물이라 같이 제외했고, 리포에는 한 번 구운 `PackOpening/Meshes/PackShell.asset`
-만 들어간다 — **이건 원본의 파생물이므로 라이선스(대개 CC-BY)와 저작자 표기를
-확인해야 한다.** `Assets/HoloCard/README.md` 의 "팩 모델 출처" 에 자리를 비워 뒀다.
+오리지널이다.
 
-원본 효과의 출처: [poke-holo](https://poke-holo.simey.me/) by Simey.
+### 제3자 에셋 표기
+
+팩 셸의 원본 FBX(`Assets/HoloCard/Model/`)는 딸려 오는 텍스처가 실제 팩 사진이라
+`.gitignore` 로 제외했고, 리포에는 `PackShellBaker` 로 한 번 구운
+`PackOpening/Meshes/PackShell.asset` 만 들어간다 — **원본의 파생물이다.**
+
+> "[Trading Card Pack](https://sketchfab.com/3d-models/trading-card-pack-26d1a87e47814d0ea3a710d169e3a671)"
+> by [Mhew2 Creations](https://sketchfab.com/goonmize1),
+> licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+> 이 프로젝트의 `PackShell.asset` 은 해당 모델을 리토폴로지·리베이크한 파생물이다.
+
+홀로그램 효과의 원본 아이디어: [poke-holo](https://poke-holo.simey.me/) by Simey.

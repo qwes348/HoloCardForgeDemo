@@ -324,10 +324,17 @@ PackOpening/
 (딸려 오는 텍스처가 실제 포켓몬 팩 사진이다), 리포에는 한 번 구운
 `PackOpening/Meshes/PackShell.asset` 만 들어간다.
 
-> **원저작자 표기를 채울 것.** 스케치팹 모델은 대개 CC-BY 라 배포·공개 시
-> 저작자와 출처 링크를 남겨야 한다. 라이선스를 확인하고 아래에 적어 두자.
->
-> - 모델: `cardpack2.fbx` — 저작자 / 링크 / 라이선스: **(확인 필요)**
+| | |
+|---|---|
+| 제목 | **Trading Card Pack** |
+| 저작자 | **Mhew2 Creations** ([@goonmize1](https://sketchfab.com/goonmize1)) |
+| 출처 | https://sketchfab.com/3d-models/trading-card-pack-26d1a87e47814d0ea3a710d169e3a671 |
+| 라이선스 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+
+CC BY 4.0 은 **개작과 상업적 이용을 허용하되 저작자 표시를 요구한다.**
+`PackShell.asset` 은 이 모델을 `PackShellBaker` 로 다시 구운 파생물이므로,
+이 프로젝트를 배포하거나 공개할 때는 위 표기를 함께 남겨야 한다
+(리포 루트 `README.md` 의 "저작권" 절에도 같은 내용이 있다).
 
 ---
 
