@@ -77,6 +77,19 @@ namespace HoloCard.PackOpening
         [Tooltip("한 장씩 차례로 날아가는 간격. 0 이면 한꺼번에 펼쳐져서 밋밋하다.")]
         public float galleryStagger = 0.07f;
 
+        [Header("Gallery Zoom")]
+        [Tooltip("결과 화면에서 카드를 클릭하면 확대해서 본다.")]
+        public bool galleryZoom = true;
+        [Tooltip("확대했을 때 크기.")]
+        public float zoomScale = 1f;
+        [Tooltip("카메라 쪽으로 당기는 거리. 나머지 카드보다 확실히 앞에 서야 한다.")]
+        public float zoomLift = 0.18f;
+        [Tooltip("확대 중 나머지 카드를 뒤로 미는 거리.")]
+        public float zoomPushBack = 0.06f;
+        public float zoomTime = 0.32f;
+        [Tooltip("확대 중 나머지 카드의 밝기.")]
+        [Range(0f, 1f)] public float zoomDim = 0.45f;
+
         [Header("Input")]
         public bool acceptInput = true;
         [Tooltip("넘기기로 인정할 드래그 거리(화면 폭 비율).")]
@@ -95,6 +108,8 @@ namespace HoloCard.PackOpening
         float _dragStartX;
         bool _dragConsumed;
         bool _gallery;
+        int _zoomed = -1;
+        MaterialPropertyBlock _mpb;
 
         public int Index => _index;
         public int Count => _cards.Count;
@@ -119,6 +134,10 @@ namespace HoloCard.PackOpening
         public event Action<bool> GalleryChanged;
 
         public bool InGallery => _gallery;
+        public bool Zoomed => _zoomed >= 0;
+
+        /// <summary>결과 화면에서 카드를 확대하거나 풀 때. 풀면 null.</summary>
+        public event Action<HoloCardController, int> ZoomChanged;
 
         void Awake()
         {
@@ -191,6 +210,7 @@ namespace HoloCard.PackOpening
             if (_cards.Count == 0) return;
 
             _index = Mathf.Clamp(index, 0, _cards.Count - 1);
+            ClearZoom();
             _gallery = false;
             PlaceArrows();
             SnapAll();
@@ -210,6 +230,7 @@ namespace HoloCard.PackOpening
                 c.enabled = false;
                 c.gameObject.SetActive(false);
             }
+            ClearZoom();
             _cards.Clear();
             _index = 0;
             _dragging = false;
@@ -266,7 +287,12 @@ namespace HoloCard.PackOpening
         {
             Transform basis = transform.parent != null ? transform.parent : transform;
             Vector3 plane = new Vector3(0f, transform.localPosition.y, transform.localPosition.z);
-            float x = _cardWidth * 0.5f + 0.11f;
+
+            // 갤러리에서는 격자 바깥으로 물린다. 뭉치 기준 자리에 두면 화살표
+            // 판정이 가운데 카드들 위에 겹쳐서 카드 클릭을 가로챈다.
+            float x = _gallery
+                ? GalleryHalfWidth() + 0.13f
+                : _cardWidth * 0.5f + 0.11f;
 
             if (rightArrow != null)
                 rightArrow.transform.position = basis.TransformPoint(plane + new Vector3(x, 0f, 0f));
@@ -296,9 +322,17 @@ namespace HoloCard.PackOpening
             if (_cards.Count == 0 || delta == 0) return;
             if (Sliding || Time.time - _lastSlideTime < slideCooldown) return;
 
-            // 갤러리에서는 되돌아가는 것만 된다.
             if (_gallery)
             {
+                // 확대 중에는 화살표가 **옆 카드로 넘어간다.** 확대를 푸는 게 아니라 —
+                // 크게 보다가 옆 것도 크게 보고 싶은 게 자연스럽다. 푸는 건 클릭·ESC.
+                if (_zoomed >= 0)
+                {
+                    int step = Mathf.Clamp(_zoomed + delta, 0, _cards.Count - 1);
+                    if (step != _zoomed) ZoomTo(step);
+                    return;
+                }
+                // 그 밖에는 되돌아가는 것만 된다.
                 if (delta < 0) CloseGallery();
                 return;
             }
@@ -420,6 +454,7 @@ namespace HoloCard.PackOpening
             _gallery = true;
             _lastSlideTime = Time.time;
 
+            PlaceArrows();
             ShowArrows(false, false);
             GalleryChanged?.Invoke(true);
 
@@ -473,9 +508,11 @@ namespace HoloCard.PackOpening
         {
             if (!_gallery) return;
             _gallery = false;
+            ClearZoom();
             _index = _cards.Count - 1;
             _lastSlideTime = Time.time;
 
+            PlaceArrows();
             ShowArrows(false, false);
             GalleryChanged?.Invoke(false);
 
@@ -530,6 +567,172 @@ namespace HoloCard.PackOpening
                 0f);
         }
 
+        /// <summary>격자 절반 폭. 갤러리에서 화살표를 바깥으로 물릴 때 쓴다.</summary>
+        float GalleryHalfWidth()
+        {
+            int cols = Mathf.Max(1, Mathf.Min(_cards.Count, galleryColumns));
+            float cellW = _cardWidth * galleryScale + galleryGap.x;
+            return (cols - 1) * 0.5f * cellW + _cardWidth * galleryScale * 0.5f;
+        }
+
+        // ── 확대 ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 결과 화면에서 카드 한 장을 앞으로 끌어내 확대한다.
+        ///
+        /// 나머지는 어둡게 깔고 살짝 뒤로 민다. 그냥 확대만 하면 뒤의 카드들이
+        /// 같은 밝기로 남아서 어느 쪽을 보라는 건지 안 읽힌다.
+        ///
+        /// 확대한 카드만 컨트롤러를 살려 포인터를 따라 기울게 한다 — 확대해서 보는
+        /// 목적이 결국 포일이라, 각도가 안 변하면 크게 볼 이유가 없다.
+        /// </summary>
+        public void ZoomTo(int j)
+        {
+            if (!_gallery || j < 0 || j >= _cards.Count) return;
+            if (_zoomed == j) return;
+
+            // 다른 카드로 옮길 때 이전 카드의 추적을 반드시 되돌린다. 안 그러면
+            // 격자로 돌아간 뒤에도 그 카드만 포인터를 끝까지 따라다닌다.
+            if (_zoomed >= 0 && _zoomed < _cards.Count && _cards[_zoomed] != null)
+                _cards[_zoomed].trackOutsideBounds = false;
+
+            _zoomed = j;
+            ShowArrows(false, false);
+
+            _slide?.Kill();
+            _slide = DOTween.Sequence();
+
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                HoloCardController c = _cards[i];
+                if (c == null) continue;
+
+                c.transform.DOKill();
+                GallerySlot(i, out Vector3 slot);
+
+                if (i == j)
+                {
+                    c.enabled = false;
+                    _slide.Insert(0f, c.transform.DOLocalMove(new Vector3(0f, 0f, -zoomLift), zoomTime)
+                                                 .SetEase(Ease.OutCubic));
+                    _slide.Insert(0f, c.transform.DOScale(Vector3.one * zoomScale, zoomTime)
+                                                 .SetEase(Ease.OutCubic));
+                    _slide.Insert(0f, DimTween(c, 1f));
+                }
+                else
+                {
+                    // 자세를 **전부** 되돌린다. 위치만 되돌리면 방금 확대했던 카드가
+                    // 큰 채로 격자에 앉아 혼자 튄다 (확대 대상을 옆으로 옮길 때).
+                    c.enabled = false;
+                    _slide.Insert(0f, c.transform.DOLocalMove(slot + new Vector3(0f, 0f, zoomPushBack), zoomTime)
+                                                 .SetEase(Ease.OutCubic));
+                    _slide.Insert(0f, c.transform.DOLocalRotateQuaternion(Quaternion.identity, zoomTime)
+                                                 .SetEase(Ease.OutCubic));
+                    _slide.Insert(0f, c.transform.DOScale(Vector3.one * galleryScale, zoomTime)
+                                                 .SetEase(Ease.OutCubic));
+                    _slide.Insert(0f, DimTween(c, zoomDim));
+                }
+            }
+
+            HoloCardController focus = _cards[j];
+            _slide.OnComplete(() =>
+            {
+                if (focus == null) return;
+                focus.SetHome(new Vector3(0f, 0f, -zoomLift), Quaternion.identity);
+                // 카드 밖으로 나가도 따라오게 한다. 확대 상태에서 카드 위에만
+                // 반응하면 조금만 벗어나도 뚝 끊긴다.
+                focus.trackOutsideBounds = true;
+                focus.enabled = true;
+            });
+
+            ZoomChanged?.Invoke(focus, j);
+        }
+
+        /// <summary>확대를 풀고 격자로 되돌린다.</summary>
+        public void ZoomOut()
+        {
+            if (_zoomed < 0) return;
+
+            HoloCardController was = _cards[_zoomed];
+            if (was != null) was.trackOutsideBounds = false;
+            _zoomed = -1;
+
+            _slide?.Kill();
+            _slide = DOTween.Sequence();
+
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                HoloCardController c = _cards[i];
+                if (c == null) continue;
+
+                c.enabled = false;
+                c.transform.DOKill();
+                GallerySlot(i, out Vector3 slot);
+
+                _slide.Insert(0f, c.transform.DOLocalMove(slot, zoomTime).SetEase(Ease.OutCubic));
+                _slide.Insert(0f, c.transform.DOLocalRotateQuaternion(Quaternion.identity, zoomTime).SetEase(Ease.OutCubic));
+                _slide.Insert(0f, c.transform.DOScale(Vector3.one * galleryScale, zoomTime).SetEase(Ease.OutCubic));
+                _slide.Insert(0f, DimTween(c, 1f));
+            }
+
+            _slide.OnComplete(() =>
+            {
+                for (int i = 0; i < _cards.Count; i++)
+                {
+                    HoloCardController c = _cards[i];
+                    if (c == null) continue;
+                    GallerySlot(i, out Vector3 slot);
+                    c.SetHome(slot, Quaternion.identity);
+                    c.enabled = true;
+                }
+                ShowArrows(true, false, false);
+            });
+
+            ZoomChanged?.Invoke(null, -1);
+        }
+
+        /// <summary>트윈 없이 확대 상태를 지운다. 리셋 경로에서 쓴다.</summary>
+        void ClearZoom()
+        {
+            if (_zoomed >= 0 && _zoomed < _cards.Count && _cards[_zoomed] != null)
+                _cards[_zoomed].trackOutsideBounds = false;
+            _zoomed = -1;
+
+            // 밝기를 반드시 되돌린다. MaterialPropertyBlock 은 렌더러에 남으므로
+            // 안 지우면 다음 팩의 카드가 어두운 채로 나온다.
+            foreach (var c in _cards)
+                if (c != null) SetDim(c, 1f);
+        }
+
+        Tween DimTween(HoloCardController card, float to)
+        {
+            float from = 1f;
+            var r = card.GetComponent<Renderer>();
+            if (r != null)
+            {
+                _mpb ??= new MaterialPropertyBlock();
+                r.GetPropertyBlock(_mpb);
+                Color c = _mpb.GetColor(HoloCardIDs.BaseColor);
+                // 블록이 비어 있으면 검정이 돌아온다. 그건 "설정 안 됨" 이지 검정이 아니다.
+                from = c.maxColorComponent > 0.001f ? c.r : 1f;
+            }
+            return DOVirtual.Float(from, to, zoomTime, v => SetDim(card, v)).SetEase(Ease.OutCubic);
+        }
+
+        void SetDim(HoloCardController card, float value)
+        {
+            if (card == null) return;
+            var r = card.GetComponent<Renderer>();
+            if (r == null) return;
+
+            // 컨트롤러도 같은 블록에 _VirtualView 등을 쓴다. Get -> 수정 -> Set 이라
+            // 서로 덮어쓰지 않는다.
+            _mpb ??= new MaterialPropertyBlock();
+            r.GetPropertyBlock(_mpb);
+            _mpb.SetColor(HoloCardIDs.BaseColor, new Color(value, value, value, 1f));
+            r.SetPropertyBlock(_mpb);
+        }
+
         // ── 입력 ─────────────────────────────────────────────────────────
 
         void Update()
@@ -539,6 +742,11 @@ namespace HoloCard.PackOpening
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
+                if (keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    if (_zoomed >= 0) { ZoomOut(); return; }
+                    if (_gallery) { CloseGallery(); return; }
+                }
                 if (keyboard.leftArrowKey.wasPressedThisFrame || keyboard.aKey.wasPressedThisFrame) Go(-1);
                 if (keyboard.rightArrowKey.wasPressedThisFrame || keyboard.dKey.wasPressedThisFrame) Go(1);
             }
@@ -578,17 +786,38 @@ namespace HoloCard.PackOpening
                 bool wasDrag = _dragConsumed;
                 _dragging = false;
                 _dragConsumed = false;
-                if (!wasDrag) ClickArrow(p);
+                if (!wasDrag) ClickAt(p);
             }
         }
 
-        void ClickArrow(Vector2 screenPosition)
+        void ClickAt(Vector2 screenPosition)
         {
             Ray ray = targetCamera.ScreenPointToRay(screenPosition);
-            if (!Physics.Raycast(ray, out RaycastHit hit, 100f)) return;
+            bool hit = Physics.Raycast(ray, out RaycastHit info, 100f);
 
-            if (rightArrow != null && rightArrow.hitArea != null && hit.collider == rightArrow.hitArea) Go(1);
-            else if (leftArrow != null && leftArrow.hitArea != null && hit.collider == leftArrow.hitArea) Go(-1);
+            if (hit)
+            {
+                if (rightArrow != null && rightArrow.hitArea != null && info.collider == rightArrow.hitArea) { Go(1); return; }
+                if (leftArrow != null && leftArrow.hitArea != null && info.collider == leftArrow.hitArea) { Go(-1); return; }
+            }
+
+            if (!_gallery) return;
+
+            // 확대 중에는 어디를 눌러도 풀린다. 확대한 카드를 다시 누르는 것도 포함 —
+            // "닫기" 를 따로 찾아야 하면 결과 화면에서 갇힌 느낌이 난다.
+            if (_zoomed >= 0) { ZoomOut(); return; }
+
+            if (!galleryZoom || !hit || Sliding) return;
+            int j = IndexOfCollider(info.collider);
+            if (j >= 0) ZoomTo(j);
+        }
+
+        int IndexOfCollider(Collider col)
+        {
+            if (col == null) return -1;
+            for (int j = 0; j < _cards.Count; j++)
+                if (_cards[j] != null && col.transform == _cards[j].transform) return j;
+            return -1;
         }
     }
 }

@@ -140,6 +140,8 @@ namespace HoloCard.PackOpening
                 carousel.Changed += OnCardChanged;
                 carousel.GalleryChanged -= OnGalleryChanged;
                 carousel.GalleryChanged += OnGalleryChanged;
+                carousel.ZoomChanged -= OnZoomChanged;
+                carousel.ZoomChanged += OnZoomChanged;
             }
         }
 
@@ -153,6 +155,7 @@ namespace HoloCard.PackOpening
                 carousel.Settled -= OnCardSettled;
                 carousel.Changed -= OnCardChanged;
                 carousel.GalleryChanged -= OnGalleryChanged;
+                carousel.ZoomChanged -= OnZoomChanged;
             }
         }
 
@@ -424,6 +427,12 @@ namespace HoloCard.PackOpening
 
             rarityDisplay.ShowGallery(infos, slots, carousel.CardHeight, carousel.galleryScale,
                                       carousel.galleryTime, carousel.galleryStagger);
+        }
+
+        /// <summary>확대 중에는 격자 표식을 접는다.</summary>
+        void OnZoomChanged(HoloCardController card, int index)
+        {
+            if (rarityDisplay != null) rarityDisplay.SetGalleryPipsShown(index < 0);
         }
 
         /// <summary>

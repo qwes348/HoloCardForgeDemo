@@ -21,18 +21,24 @@ namespace HoloCard.PackOpening
         /// 레코더는 입력을 흉내 낼 수 없어서 (포인터·키보드는 실제 장치를 본다)
         /// 넘기기 연출을 담으려면 여기서 직접 불러 줘야 한다.
         /// </param>
+        /// <param name="onFrame">
+        /// 프레임마다 부른다(인자는 프레임 번호). 입력이 필요한 상호작용 —
+        /// 갤러리에서 카드를 확대한다든가 — 을 정확한 프레임에 끼워 넣는 자리다.
+        /// 레코더는 포인터·키보드를 흉내 낼 수 없다(실제 장치를 본다).
+        /// </param>
         public static void Capture(Camera camera, PackOpeningDirector director,
                                    string directory, int frames, int fps, int width, int height,
-                                   float advanceEvery = 0f)
+                                   float advanceEvery = 0f, System.Action<int> onFrame = null)
         {
             var go = new GameObject("~PackOpeningRecorder");
             var rec = go.AddComponent<PackOpeningRecorder>();
-            rec.StartCoroutine(rec.Run(camera, director, directory, frames, fps, width, height, advanceEvery));
+            rec.StartCoroutine(rec.Run(camera, director, directory, frames, fps, width, height,
+                                       advanceEvery, onFrame));
         }
 
         IEnumerator Run(Camera camera, PackOpeningDirector director,
                         string directory, int frames, int fps, int width, int height,
-                        float advanceEvery)
+                        float advanceEvery, System.Action<int> onFrame)
         {
             Directory.CreateDirectory(directory);
             foreach (string old in Directory.GetFiles(directory, "*.png")) File.Delete(old);
@@ -58,6 +64,8 @@ namespace HoloCard.PackOpening
 
             for (int i = 0; i < frames; i++)
             {
+                onFrame?.Invoke(i);
+
                 // 이 프레임의 시뮬레이션이 다 끝난 뒤에 그려야 트윈이 반영된다.
                 yield return new WaitForEndOfFrame();
 
@@ -73,9 +81,11 @@ namespace HoloCard.PackOpening
                 File.WriteAllBytes(Path.Combine(directory, $"f{i:D3}.png"), shot.EncodeToPNG());
 
                 // 개봉이 끝났으면 일정 간격으로 한 칸씩 넘겨 캐러셀도 담는다.
+                // 결과 화면에 들어가면 자동 넘기기를 멈춘다. 계속 부르면 확대해 놓은
+                // 걸 하네스가 스스로 풀어 버린다.
                 if (advanceEvery > 0f && director != null &&
                     director.Current == PackOpeningDirector.Stage.Browsing &&
-                    director.carousel != null)
+                    director.carousel != null && !director.carousel.InGallery)
                 {
                     nextAdvance -= 1f / fps;
                     if (nextAdvance <= 0f)

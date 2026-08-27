@@ -152,7 +152,7 @@ namespace HoloCard.PackOpening.Editor
                                     out HoloCardMesh mesh)
         {
             var go = new GameObject(set.name, typeof(MeshFilter), typeof(MeshRenderer));
-            go.AddComponent<BoxCollider>();
+            var box = go.AddComponent<BoxCollider>();
 
             mesh = go.AddComponent<HoloCardMesh>();
             mesh.height = 0.88f;
@@ -160,6 +160,12 @@ namespace HoloCard.PackOpening.Editor
             mesh.thickness = 0.012f;
             mesh.cornerRadius = 0.03f;
             mesh.Rebuild();
+
+            // 콜라이더 크기를 손으로 적는다. AddComponent 시점엔 MeshFilter 가
+            // 비어 있어서 자동 크기가 1x1x1 로 잡히고, 그 뒤 Rebuild 해도 갱신되지
+            // 않는다 — 갤러리에서 카드를 클릭할 때 판정이 카드와 안 맞는 원인.
+            box.size = new Vector3(mesh.width, mesh.height, Mathf.Max(mesh.thickness, 0.01f));
+            box.center = Vector3.zero;
 
             var renderer = go.GetComponent<MeshRenderer>();
             renderer.sharedMaterials = new[] { front, back, rim };

@@ -273,6 +273,22 @@ namespace HoloCard.PackOpening
             }
         }
 
+        /// <summary>
+        /// 확대 중에는 격자 표식을 접는다. 표식은 격자 자리에 붙박이라, 카드 하나가
+        /// 앞으로 튀어나오면 그 카드의 표식만 빈자리에 홀로 남아 어느 카드 것인지
+        /// 안 읽힌다.
+        /// </summary>
+        public void SetGalleryPipsShown(bool shown)
+        {
+            float size = pipSize * galleryPipScale;
+            foreach (var t in _galleryPips)
+            {
+                if (t == null || !t.gameObject.activeSelf) continue;
+                t.DOKill();
+                t.DOScale(shown ? Vector3.one * size : Vector3.zero, 0.18f).SetEase(Ease.OutQuad);
+            }
+        }
+
         /// <summary>결과 화면 표식 하나를 확보한다. 없으면 만들어 둔다.</summary>
         Transform EnsureGalleryPip(int index)
         {
