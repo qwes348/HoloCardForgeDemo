@@ -52,7 +52,10 @@ Shader "Holo/Holographic Card (3D)"
         _BorderHue        ("Hue Cycles", Range(0.5, 6))         = 2
         _BorderShift      ("Tilt Response", Range(0, 5))        = 1.6
         _BorderStreak     ("Streaks", Range(0, 1))              = 0.55
-        _BorderStreakScale ("Streak Density", Range(4, 80))     = 26
+        _BorderStreakScale ("Streak Density", Range(4, 120))    = 52
+        _BorderSilver     ("Silver Base", Range(0, 2))          = 0.9
+        _BorderChroma     ("Chroma", Range(0, 3))               = 2.1
+        _BorderCover      ("Foil Coverage", Range(0, 1))          = 0.8
         [Space(4)] _BorderRadius ("Corner Radius (카드 높이 = 1)", Range(0, 0.2)) = 0.034
         _CardAspect       ("Card Aspect (w / h)", Range(0.3, 2)) = 0.727
 

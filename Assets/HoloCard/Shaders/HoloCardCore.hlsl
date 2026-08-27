@@ -71,6 +71,9 @@ CBUFFER_START(UnityPerMaterial)
     float  _BorderShift;
     float  _BorderStreak;
     float  _BorderStreakScale;
+    float  _BorderSilver;
+    float  _BorderChroma;
+    float  _BorderCover;
     float  _CardAspect;
 
     float4 _PointerUV;
@@ -262,29 +265,42 @@ float3 HoloBorderFoil(float2 uv, float3 v, float t, out float band)
     float around = atan2(p.y, p.x) / HOLO_TAU;
     float phase  = (v.x * 0.85 + v.y * 0.55) * _BorderShift + t * _HoloSpeed * 0.6;
 
-    float3 hue = HoloSpectrum(around * _BorderHue + phase);
+    // 대각 빗살. 레퍼런스의 테두리는 매끈한 그라디언트가 아니라 **브러시드 메탈**
+    // 이다 — 굵은 결 위에 가는 결이 겹쳐 있고, 밝은 날이 좁고 사이가 넓다.
+    // 한 겹만 쓰면 사인파 줄무늬로 보이고, pow 로 날을 세우지 않으면 그냥 그라디언트다.
+    float2 sp    = HoloRot2(p, radians(_HoloAngle));
+    float  along = (sp.x + sp.y * 0.40) * _BorderStreakScale;
+    float  s1 = sin(along + phase * 4.0);
+    float  s2 = sin((sp.x * 1.9 - sp.y * 0.30) * _BorderStreakScale * 2.7 - phase * 5.5);
+    float  streak = 0.5 + 0.5 * (s1 * 0.72 + s2 * 0.28);
+    // 바닥을 0 으로 떨어뜨리지 않는다. 결 사이도 금속이라 어느 정도는 밝다.
+    streak = lerp(1.0, pow(streak, 3.4) * 2.1 + 0.20, saturate(_BorderStreak));
 
-    // 대각 빗살. 레퍼런스의 테두리는 매끈한 그라디언트가 아니라 굵은 줄무늬다.
-    float2 sp     = HoloRot2(p, radians(_HoloAngle));
-    float  streak = 0.5 + 0.5 * sin((sp.x + sp.y * 0.4) * _BorderStreakScale + phase * 4.0);
-    streak = lerp(1.0, pow(streak, 1.6) * 1.5, saturate(_BorderStreak));
+    // 색상은 둘레 위치 **와 결의 좌표** 양쪽에서 나온다.
+    // 둘레 위치만 쓰면 한 변 안에서 색이 거의 안 변해서, 변마다 단색인 띠가 된다 —
+    // 레퍼런스는 이웃한 결끼리 초록·청록·자홍으로 갈라진다. 결 좌표를 섞어야
+    // 그 갈라짐이 생긴다 (결이 촘촘할수록 색도 촘촘해지는 게 맞으므로 along 을
+    // 그대로 쓴다).
+    float3 hue = HoloSpectrum(around * _BorderHue + phase + along * 0.030);
 
-    // 실제 포일은 정면에서 흰 은박에 가깝고 기울일수록 색이 산다.
-    //
     // 세기를 abs(n.z) 로 재면 안 된다. 카드가 실제로 기우는 범위에서 n.z 는
     // 0.8~1.0 밖에 안 움직여서 (1 - |n.z|) 가 늘 0.2 언저리다 — 아무리 기울여도
     // 테두리가 뿌연 흰 띠로만 남는다. 화면에 투영된 기울기 length(n.xy) 로 재야
     // 같은 범위가 0~0.5 로 펼쳐진다.
-    //
-    // 그리고 흰색과 lerp 하지 않는다. 그건 채도만 빼는 게 아니라 밝기까지 같이
-    // 올려서 중간 각도가 전부 파스텔이 된다. 같은 밝기의 회색과 섞어야 정면은
-    // 은박, 기울이면 무지개가 된다.
-    float3 n   = normalize(v);
-    float  sat = saturate(length(n.xy) * 2.2);
-    float  lum = dot(hue, float3(0.33, 0.5, 0.17));
-    float3 look = lerp((float3)(lum * 1.7), hue * 1.5, sat);
+    float3 n      = normalize(v);
+    float  chroma = saturate(length(n.xy) * 2.2) * _BorderChroma;
 
-    return look * band * streak;
+    // ── 은박의 정체는 "무지개색 빛" 이 아니라 "밝은 금속에 색이 **어린** 것" 이다.
+    //
+    // 색상값 자체를 칠하면(회색↔색상 lerp, 또는 hue 를 그대로 곱하기) 기울일수록
+    // 순수한 무지개가 되어 금속이 아니라 **빛나는 테두리**로 읽힌다. 레퍼런스를
+    // 확대해 보면 바탕은 끝까지 밝은 은색이고, 색은 그 위에 얹힌 편차일 뿐이다.
+    //
+    // 그래서 색상에서 휘도를 뺀 **색차 성분만** 은색 바탕에 더한다.
+    float  lum  = dot(hue, float3(0.33, 0.5, 0.17));
+    float3 look = _BorderSilver + (hue - lum) * chroma;
+
+    return max(look, 0.0) * band * streak;
 }
 
 // ---------------------------------------------------------------------------
@@ -374,9 +390,22 @@ float4 HoloCardShade(TEXTURE2D_PARAM(artTex,   artSampler),
     float rim = pow(saturate(1.0 - abs(v.z)), max(_RimPower, 0.1)) * _RimIntensity;
     col += _RimColor.rgb * rim * (1.0 - edge * 0.65);
 
-    // 띠는 포화시켜 더한다. 모서리에서는 두 변의 띠가 겹치는데 그냥 더하면
-    // 거기만 흰 덩어리가 된다.
-    col += 1.0 - exp(-max(border, 0.0));
+    // ── 띠를 화면에 얹는다. 여기서 두 가지를 틀리면 무지개가 흰 띠가 된다.
+    //
+    // 1) 포화를 **채널마다 따로** 걸면 안 된다. 밝은 채널이 먼저 눌려서
+    //    (1.8, 0.9, 0.4) 이 (0.83, 0.59, 0.33) 이 된다 — 4.5:1 이던 색 비율이
+    //    2.5:1 로 뭉개져 채도가 씻긴다. 휘도만 포화시키고 그 비율을 세 채널에
+    //    똑같이 곱해야 밝기는 잡히고 색은 남는다.
+    border = max(border, 0.0);
+    float  bl   = max(dot(border, float3(0.33, 0.5, 0.17)), 1e-4);
+    float3 tone = border * ((1.0 - exp(-bl)) / bl);
+
+    // 2) 순수 가산이면 안 된다. 포일은 인쇄 **위에 얹힌 층**이라 밑의 밝은 인쇄가
+    //    그대로 비치면 안 되는데, 더하기만 하면 흰 바탕 위에서 색이 다 씻긴다.
+    //    띠가 센 자리에서는 포일 색으로 갈아타고, 그 위에 광택만 조금 더한다.
+    float cover = saturate(borderMask * _BorderCover);
+    col = lerp(col, tone, cover);
+    col += tone * 0.30 * cover;
 
     // 감마 공간에서 합성했다면 리니어로 되돌린다.
     col = lerp(col, SRGBToLinear(col), _GammaBlend);

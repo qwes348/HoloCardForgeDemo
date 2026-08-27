@@ -44,6 +44,9 @@ namespace HoloCard
         public static readonly int BorderShift       = Shader.PropertyToID("_BorderShift");
         public static readonly int BorderStreak      = Shader.PropertyToID("_BorderStreak");
         public static readonly int BorderStreakScale = Shader.PropertyToID("_BorderStreakScale");
+        public static readonly int BorderSilver      = Shader.PropertyToID("_BorderSilver");
+        public static readonly int BorderChroma      = Shader.PropertyToID("_BorderChroma");
+        public static readonly int BorderCover       = Shader.PropertyToID("_BorderCover");
 
         // 룩이 아니라 지오메트리다. 프리셋에 넣지 않고 메시에서 받아 적는다.
         public static readonly int BorderRadius      = Shader.PropertyToID("_BorderRadius");
@@ -113,7 +116,13 @@ namespace HoloCard
         [Range(0.5f, 6f)]      public float borderHue         = 2f;
         [Range(0f, 5f)]        public float borderShift       = 1.6f;
         [Range(0f, 1f)]        public float borderStreak      = 0.55f;
-        [Range(4f, 80f)]       public float borderStreakScale = 26f;
+        [Range(4f, 120f)]      public float borderStreakScale = 52f;
+        [Tooltip("은박 바탕 밝기. 색을 칠하는 게 아니라 이 위에 색차만 얹는다.")]
+        [Range(0f, 2f)]        public float borderSilver      = 0.9f;
+        [Tooltip("기울였을 때 색이 어리는 정도.")]
+        [Range(0f, 3f)]        public float borderChroma      = 2.1f;
+        [Tooltip("띠가 인쇄를 덮는 정도. 0 이면 순수 가산이라 흰 바탕에서 색이 씻긴다.")]
+        [Range(0f, 1f)]        public float borderCover       = 0.8f;
 
         public void ApplyTo(Material m)
         {
@@ -156,6 +165,9 @@ namespace HoloCard
             m.SetFloat(HoloCardIDs.BorderShift,       borderShift);
             m.SetFloat(HoloCardIDs.BorderStreak,      borderStreak);
             m.SetFloat(HoloCardIDs.BorderStreakScale, borderStreakScale);
+            m.SetFloat(HoloCardIDs.BorderSilver,      borderSilver);
+            m.SetFloat(HoloCardIDs.BorderChroma,      borderChroma);
+            m.SetFloat(HoloCardIDs.BorderCover,       borderCover);
         }
 
         public void CaptureFrom(Material m)
@@ -199,6 +211,9 @@ namespace HoloCard
             borderShift       = m.GetFloat(HoloCardIDs.BorderShift);
             borderStreak      = m.GetFloat(HoloCardIDs.BorderStreak);
             borderStreakScale = m.GetFloat(HoloCardIDs.BorderStreakScale);
+            borderSilver      = m.GetFloat(HoloCardIDs.BorderSilver);
+            borderChroma      = m.GetFloat(HoloCardIDs.BorderChroma);
+            borderCover       = m.GetFloat(HoloCardIDs.BorderCover);
         }
 
         /// <summary>
@@ -225,6 +240,7 @@ namespace HoloCard
             rimIntensity = 0.25f; rimPower = 2.5f; bevel = 0.18f; bevelWidth = 0.035f;
             borderFoil = 0f; borderWidth = 0.055f; borderInset = 0.008f; borderSharp = 2.6f;
             borderHue = 2f; borderShift = 1.6f; borderStreak = 0.55f; borderStreakScale = 26f;
+            borderSilver = 0.9f; borderChroma = 2.1f; borderCover = 0.8f;
 
             switch (kind)
             {

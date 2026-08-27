@@ -40,14 +40,17 @@ Material:
     m_Floats:
     - _Bevel: 0.08
     - _BevelWidth: 0.035
+    - _BorderChroma: 1.9
+    - _BorderCover: 0.70066667
     - _BorderFoil: 0.8
     - _BorderHue: 1.9466667
     - _BorderInset: 0.006
     - _BorderRadius: 0.03409091
     - _BorderSharp: 2.9
     - _BorderShift: 1.8
+    - _BorderSilver: 0.92
     - _BorderStreak: 0.54
-    - _BorderStreakScale: 30
+    - _BorderStreakScale: 54
     - _BorderWidth: 0.047066666
     - _CardAspect: 0.7167969
     - _DepthShade: 0.38

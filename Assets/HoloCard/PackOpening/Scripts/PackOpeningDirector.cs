@@ -138,6 +138,8 @@ namespace HoloCard.PackOpening
                 carousel.Settled += OnCardSettled;
                 carousel.Changed -= OnCardChanged;
                 carousel.Changed += OnCardChanged;
+                carousel.GalleryChanged -= OnGalleryChanged;
+                carousel.GalleryChanged += OnGalleryChanged;
             }
         }
 
@@ -150,6 +152,7 @@ namespace HoloCard.PackOpening
             {
                 carousel.Settled -= OnCardSettled;
                 carousel.Changed -= OnCardChanged;
+                carousel.GalleryChanged -= OnGalleryChanged;
             }
         }
 
@@ -395,6 +398,32 @@ namespace HoloCard.PackOpening
         void OnCardChanged(HoloCardController card, int index)
         {
             if (rarityDisplay != null) rarityDisplay.Hide();
+        }
+
+        /// <summary>
+        /// 결과 화면에서는 표식을 걷는다. 표식·뱃지는 가운데 한 장을 기준으로
+        /// 자리를 잡으므로, 카드가 격자로 흩어진 자리에 그대로 두면 아무 카드에도
+        /// 안 붙은 채 화면 가운데 떠 있게 된다.
+        /// </summary>
+        void OnGalleryChanged(bool open)
+        {
+            if (rarityDisplay == null || carousel == null) return;
+
+            rarityDisplay.Hide();
+            if (!open) return;
+
+            var infos = new List<HoloCardInfo>(carousel.Count);
+            var slots = new List<Vector3>(carousel.Count);
+            for (int i = 0; i < carousel.Count; i++)
+            {
+                HoloCardController card = carousel.CardAt(i);
+                infos.Add(card != null ? card.GetComponent<HoloCardInfo>() : null);
+                carousel.GallerySlot(i, out Vector3 pos);
+                slots.Add(pos);
+            }
+
+            rarityDisplay.ShowGallery(infos, slots, carousel.CardHeight, carousel.galleryScale,
+                                      carousel.galleryTime, carousel.galleryStagger);
         }
 
         /// <summary>

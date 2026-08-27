@@ -20,6 +20,10 @@ namespace HoloCard.PackOpening
     ///
     /// 깊이는 <see cref="visibleDepth"/> 장까지만 켠다. POM 카드는 한 장이 비싸고,
     /// 어차피 네 장 밑은 앞 카드에 완전히 가린다.
+    ///
+    /// 마지막 장에서 한 번 더 넘기면 <see cref="OpenGallery"/> — 뽑은 카드를 전부
+    /// 펼쳐 놓는 결과 화면으로 넘어간다. 무한히 순환시키면 "다 봤다" 는 순간이
+    /// 없어서 개봉이 안 끝난다.
     /// </summary>
     [AddComponentMenu("Holo Card/Card Carousel")]
     public class CardCarousel : MonoBehaviour
@@ -61,6 +65,18 @@ namespace HoloCard.PackOpening
         [Tooltip("연달아 넘길 때의 최소 간격.")]
         public float slideCooldown = 0.06f;
 
+        [Header("Gallery")]
+        [Tooltip("마지막 장에서 더 넘기면 뽑은 카드를 전부 펼쳐 보여준다.")]
+        public bool galleryAtEnd = true;
+        [Range(1, 6)] public int galleryColumns = 5;
+        [Tooltip("펼쳤을 때 카드 크기.")]
+        public float galleryScale = 0.56f;
+        [Tooltip("카드 사이 여백.")]
+        public Vector2 galleryGap = new Vector2(0.055f, 0.09f);
+        public float galleryTime = 0.5f;
+        [Tooltip("한 장씩 차례로 날아가는 간격. 0 이면 한꺼번에 펼쳐져서 밋밋하다.")]
+        public float galleryStagger = 0.07f;
+
         [Header("Input")]
         public bool acceptInput = true;
         [Tooltip("넘기기로 인정할 드래그 거리(화면 폭 비율).")]
@@ -78,6 +94,7 @@ namespace HoloCard.PackOpening
         bool _dragging;
         float _dragStartX;
         bool _dragConsumed;
+        bool _gallery;
 
         public int Index => _index;
         public int Count => _cards.Count;
@@ -88,11 +105,20 @@ namespace HoloCard.PackOpening
         public HoloCardController Current =>
             _index >= 0 && _index < _cards.Count ? _cards[_index] : null;
 
+        /// <summary>싣는 순서대로 i 번째 카드. 결과 화면이 등급 표식을 붙일 때 쓴다.</summary>
+        public HoloCardController CardAt(int i) =>
+            i >= 0 && i < _cards.Count ? _cards[i] : null;
+
         /// <summary>가운데 카드가 바뀌기 **시작**할 때. 표식·뱃지는 여기서 치운다.</summary>
         public event Action<HoloCardController, int> Changed;
 
         /// <summary>새 카드가 자리에 앉았을 때. 표식·뱃지·레어 연출이 여기서 뜬다.</summary>
         public event Action<HoloCardController, int> Settled;
+
+        /// <summary>결과 화면(갤러리)에 들어가고 나올 때.</summary>
+        public event Action<bool> GalleryChanged;
+
+        public bool InGallery => _gallery;
 
         void Awake()
         {
@@ -165,6 +191,7 @@ namespace HoloCard.PackOpening
             if (_cards.Count == 0) return;
 
             _index = Mathf.Clamp(index, 0, _cards.Count - 1);
+            _gallery = false;
             PlaceArrows();
             SnapAll();
 
@@ -186,6 +213,7 @@ namespace HoloCard.PackOpening
             _cards.Clear();
             _index = 0;
             _dragging = false;
+            _gallery = false;
             ShowArrows(false, true);
         }
 
@@ -246,15 +274,18 @@ namespace HoloCard.PackOpening
                 leftArrow.transform.position = basis.TransformPoint(plane + new Vector3(-x, 0f, 0f));
         }
 
-        void ShowArrows(bool on, bool immediate)
+        void ShowArrows(bool on, bool immediate) => ShowArrows(on, on, immediate);
+
+        /// <summary>좌우를 따로 켠다. 갤러리에서는 되돌아가는 쪽만 살아 있다.</summary>
+        void ShowArrows(bool left, bool right, bool immediate)
         {
             if (leftArrow != null)
             {
-                if (immediate) leftArrow.SetShownImmediate(on); else leftArrow.SetShown(on);
+                if (immediate) leftArrow.SetShownImmediate(left); else leftArrow.SetShown(left);
             }
             if (rightArrow != null)
             {
-                if (immediate) rightArrow.SetShownImmediate(on); else rightArrow.SetShown(on);
+                if (immediate) rightArrow.SetShownImmediate(right); else rightArrow.SetShown(right);
             }
         }
 
@@ -262,13 +293,33 @@ namespace HoloCard.PackOpening
 
         public void Go(int delta)
         {
-            if (_cards.Count < 2 || delta == 0) return;
+            if (_cards.Count == 0 || delta == 0) return;
             if (Sliding || Time.time - _lastSlideTime < slideCooldown) return;
+
+            // 갤러리에서는 되돌아가는 것만 된다.
+            if (_gallery)
+            {
+                if (delta < 0) CloseGallery();
+                return;
+            }
 
             int from = _index;
             int next = _index + delta;
-            if (wrap) next = (next % _cards.Count + _cards.Count) % _cards.Count;
-            else next = Mathf.Clamp(next, 0, _cards.Count - 1);
+
+            // 마지막 장을 넘기면 순환하는 대신 결과 화면으로 나간다.
+            if (next >= _cards.Count)
+            {
+                if (galleryAtEnd) { OpenGallery(); return; }
+                if (!wrap) return;
+                next = 0;
+            }
+            else if (next < 0)
+            {
+                // 갤러리가 켜져 있으면 앞쪽 끝은 그냥 막는다. 여기서 순환시키면
+                // 마지막 장으로 건너뛰었다가 다시 갤러리로 나가는 길이 생겨 헷갈린다.
+                if (galleryAtEnd || !wrap) return;
+                next = _cards.Count - 1;
+            }
             if (next == from) return;
 
             _index = next;
@@ -353,11 +404,137 @@ namespace HoloCard.PackOpening
             _slide.Insert(riseLag, t.DOScale(StackScale(k), riseTime).SetEase(riseEase));
         }
 
+        // ── 결과 화면 ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 뽑은 카드를 전부 펼친다. 가챠의 마지막 박자 — "이만큼 나왔다" 를 한눈에
+        /// 보여 주는 자리다.
+        ///
+        /// 한 장씩 <see cref="galleryStagger"/> 간격으로 날아간다. 한꺼번에 펼치면
+        /// 그냥 배치가 바뀐 것으로 보이고, 차례로 놓이면 세는 맛이 생긴다.
+        /// 뭉치 순서가 등급 오름차순이라 제일 좋은 카드가 마지막에 자리를 잡는다.
+        /// </summary>
+        public void OpenGallery()
+        {
+            if (_gallery || _cards.Count == 0) return;
+            _gallery = true;
+            _lastSlideTime = Time.time;
+
+            ShowArrows(false, false);
+            GalleryChanged?.Invoke(true);
+
+            _slide?.Kill();
+            _slide = DOTween.Sequence();
+
+            for (int j = 0; j < _cards.Count; j++)
+            {
+                HoloCardController c = _cards[j];
+                if (c == null) continue;
+
+                c.enabled = false;
+                c.transform.DOKill();
+
+                // 뭉치 뒤에 숨어 있던 장은 제자리에서 시작시킨다. 그래야 뭉치에서
+                // 뽑혀 나오는 것으로 읽힌다 (없던 데서 튀어나오지 않는다).
+                if (!c.gameObject.activeSelf)
+                {
+                    c.gameObject.SetActive(true);
+                    Pose(c, Mathf.Min(SlotOf(j), visibleDepth + 1));
+                }
+
+                GallerySlot(j, out Vector3 pos);
+                float at = galleryStagger * j;
+                _slide.Insert(at, c.transform.DOLocalMove(pos, galleryTime).SetEase(Ease.OutBack, 1.05f));
+                _slide.Insert(at, c.transform.DOLocalRotateQuaternion(Quaternion.identity, galleryTime)
+                                             .SetEase(Ease.OutCubic));
+                _slide.Insert(at, c.transform.DOScale(Vector3.one * galleryScale, galleryTime)
+                                             .SetEase(Ease.OutCubic));
+            }
+
+            _slide.OnComplete(() =>
+            {
+                for (int j = 0; j < _cards.Count; j++)
+                {
+                    HoloCardController c = _cards[j];
+                    if (c == null) continue;
+                    GallerySlot(j, out Vector3 pos);
+                    c.SetHome(pos, Quaternion.identity);
+                    // 펼쳐 놓은 카드는 전부 살려 둔다. 각도가 안 변하면 포일이
+                    // 죽어서 결과 화면이 인쇄물 사진처럼 보인다.
+                    c.enabled = true;
+                }
+                // 되돌아가는 쪽만 켠다.
+                ShowArrows(true, false, false);
+            });
+        }
+
+        /// <summary>결과 화면에서 다시 뭉치로 돌아간다. 마지막 장이 앞에 온다.</summary>
+        public void CloseGallery()
+        {
+            if (!_gallery) return;
+            _gallery = false;
+            _index = _cards.Count - 1;
+            _lastSlideTime = Time.time;
+
+            ShowArrows(false, false);
+            GalleryChanged?.Invoke(false);
+
+            _slide?.Kill();
+            _slide = DOTween.Sequence();
+
+            for (int j = 0; j < _cards.Count; j++)
+            {
+                HoloCardController c = _cards[j];
+                if (c == null) continue;
+
+                c.enabled = false;
+                c.transform.DOKill();
+
+                int k = SlotOf(j);
+                int target = Mathf.Min(k, visibleDepth + 1);
+                float at = galleryStagger * (_cards.Count - 1 - j);
+
+                _slide.Insert(at, c.transform.DOLocalMove(StackPosition(target), galleryTime).SetEase(Ease.InOutCubic));
+                _slide.Insert(at, c.transform.DOLocalRotateQuaternion(StackRotation(target), galleryTime).SetEase(Ease.InOutCubic));
+                _slide.Insert(at, c.transform.DOScale(StackScale(target), galleryTime).SetEase(Ease.InOutCubic));
+            }
+
+            _slide.OnComplete(() =>
+            {
+                SnapAll();
+                if (Current != null) Current.enabled = true;
+                ShowArrows(true, false);
+                Settled?.Invoke(Current, _index);
+            });
+        }
+
+        /// <summary>
+        /// 격자에서 j 번째 카드의 자리. 마지막 줄은 개수가 모자라도 가운데 정렬한다
+        /// — 왼쪽으로 몰아 두면 결과 화면이 한쪽으로 기운 것처럼 보인다.
+        /// </summary>
+        public void GallerySlot(int j, out Vector3 position)
+        {
+            int cols = Mathf.Max(1, Mathf.Min(_cards.Count, galleryColumns));
+            int rows = Mathf.CeilToInt(_cards.Count / (float)cols);
+
+            int row = j / cols;
+            int col = j % cols;
+            int inRow = Mathf.Min(_cards.Count - row * cols, cols);
+
+            float cellW = _cardWidth * galleryScale + galleryGap.x;
+            float cellH = _cardHeight * galleryScale + galleryGap.y;
+
+            position = new Vector3(
+                (col - (inRow - 1) * 0.5f) * cellW,
+                -(row - (rows - 1) * 0.5f) * cellH,
+                0f);
+        }
+
         // ── 입력 ─────────────────────────────────────────────────────────
 
         void Update()
         {
-            if (!acceptInput || _cards.Count < 2) return;
+            if (!acceptInput || _cards.Count == 0) return;
 
             var keyboard = Keyboard.current;
             if (keyboard != null)

@@ -65,6 +65,12 @@ namespace HoloCard.PackOpening
         public float badgePop = 0.42f;
         public float hideTime = 0.09f;
 
+        [Header("Gallery")]
+        [Tooltip("결과 화면에서 표식 크기 배수. 카드가 작아진 만큼 같이 줄인다.")]
+        public float galleryPipScale = 0.62f;
+        [Tooltip("결과 화면에서 카드 밑변과 표식 사이 거리.")]
+        public float galleryPipGap = 0.05f;
+
         [Header("Look")]
         public Color diamondColor = new Color(1f, 1f, 1f, 0.95f);
         public Color starColor = new Color(1f, 0.93f, 0.55f, 1f);
@@ -75,6 +81,13 @@ namespace HoloCard.PackOpening
 
         Sequence _sequence;
         MaterialPropertyBlock _mpb;
+
+        // 결과 화면 표식은 카드 수 x 등급만큼 필요해서 씬에 미리 깔아 두면 낭비다.
+        // 첫 결과 화면에서 만들고 그 뒤로는 재사용한다.
+        readonly System.Collections.Generic.List<Transform> _galleryPips
+            = new System.Collections.Generic.List<Transform>();
+        readonly System.Collections.Generic.List<Renderer> _galleryMarks
+            = new System.Collections.Generic.List<Renderer>();
         static readonly int ColorId = Shader.PropertyToID("_BaseColor");
 
         void Awake() => HideImmediate();
@@ -98,6 +111,14 @@ namespace HoloCard.PackOpening
                 newBadge.DOKill();
                 newBadge.localScale = Vector3.zero;
                 newBadge.gameObject.SetActive(false);
+            }
+
+            foreach (var t in _galleryPips)
+            {
+                if (t == null) continue;
+                t.DOKill();
+                t.localScale = Vector3.zero;
+                t.gameObject.SetActive(false);
             }
         }
 
@@ -194,6 +215,86 @@ namespace HoloCard.PackOpening
 
             _sequence.Insert(badgeDelay, newBadge.DOScale(Vector3.one, badgePop).SetEase(Ease.OutBack, 3f));
             _sequence.Insert(badgeDelay, newBadge.DOLocalRotate(Vector3.zero, badgePop).SetEase(Ease.OutBack, 2f));
+        }
+
+        /// <summary>
+        /// 결과 화면: 펼쳐 놓은 카드마다 밑에 등급 표식을 붙인다.
+        ///
+        /// 캐러셀에서 쓰는 표식 한 벌로는 안 된다 — 그건 가운데 한 장 기준으로
+        /// 자리를 잡으므로, 카드가 격자로 흩어지면 아무 카드에도 안 붙는다.
+        /// 여기서는 카드 수만큼 따로 깔고, 카드가 날아와 앉는 순서에 맞춰 띄운다.
+        /// 결과 화면에서 정작 확인하고 싶은 게 등급이라 이게 빠지면 그냥 카드 진열이다.
+        /// </summary>
+        public void ShowGallery(System.Collections.Generic.IList<HoloCardInfo> infos,
+                                System.Collections.Generic.IList<Vector3> slots,
+                                float cardHeight, float cardScale,
+                                float arriveTime, float stagger)
+        {
+            HideImmediate();
+            if (infos == null || slots == null) return;
+
+            _sequence = DOTween.Sequence();
+
+            float size = pipSize * galleryPipScale;
+            float spacing = pipSpacing * galleryPipScale;
+            int cursor = 0;
+
+            for (int i = 0; i < infos.Count && i < slots.Count; i++)
+            {
+                HoloCardInfo info = infos[i];
+                if (info == null) continue;
+
+                int count = Mathf.Clamp(info.PipCount, 0, pips.Length);
+                Material mark = info.IsStar ? starMaterial : diamondMaterial;
+                Color markColor = info.IsStar ? starColor : diamondColor;
+
+                float halfSpan = (count - 1) * 0.5f;
+                float y = slots[i].y - cardHeight * cardScale * 0.5f - galleryPipGap;
+                // 카드가 자리에 앉자마자 뜬다. 먼저 뜨면 빈자리에 표식만 떠 있다.
+                float at = stagger * i + arriveTime * 0.75f;
+
+                for (int k = 0; k < count; k++)
+                {
+                    Transform pip = EnsureGalleryPip(cursor++);
+                    var rend = _galleryMarks[cursor - 1];
+                    if (rend != null)
+                    {
+                        if (mark != null) rend.sharedMaterial = mark;
+                        Write(rend, markColor);
+                    }
+
+                    pip.localPosition = new Vector3(slots[i].x + (k - halfSpan) * spacing, y, slots[i].z - 0.02f);
+                    pip.localScale = Vector3.zero;
+                    pip.gameObject.SetActive(true);
+
+                    _sequence.Insert(at + k * pipInterval * 0.6f,
+                        pip.DOScale(Vector3.one * size, pipPop).SetEase(Ease.OutBack, 2.6f));
+                }
+            }
+        }
+
+        /// <summary>결과 화면 표식 하나를 확보한다. 없으면 만들어 둔다.</summary>
+        Transform EnsureGalleryPip(int index)
+        {
+            while (_galleryPips.Count <= index)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                go.name = $"Gallery Pip {_galleryPips.Count}";
+                go.transform.SetParent(transform, false);
+                var col = go.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+
+                var rend = go.GetComponent<MeshRenderer>();
+                rend.sharedMaterial = diamondMaterial;
+                rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+                go.transform.localScale = Vector3.zero;
+                go.SetActive(false);
+
+                _galleryPips.Add(go.transform);
+                _galleryMarks.Add(rend);
+            }
+            return _galleryPips[index];
         }
 
         /// <summary>알파 블렌드 대상(표식·뱃지). 알파가 곧 불투명도다.</summary>

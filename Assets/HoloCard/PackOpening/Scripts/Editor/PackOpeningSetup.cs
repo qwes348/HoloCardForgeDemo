@@ -386,7 +386,13 @@ namespace HoloCard.PackOpening.Editor
             mat.SetFloat(HoloCardIDs.BorderWidth, Mathf.Lerp(0.030f, 0.062f, strength / 1.5f));
             mat.SetFloat(HoloCardIDs.BorderHue,   Mathf.Lerp(1.2f, 2.6f, strength / 1.5f));
             mat.SetFloat(HoloCardIDs.BorderStreak, Mathf.Lerp(0.30f, 0.75f, strength / 1.5f));
-            mat.SetFloat(HoloCardIDs.BorderStreakScale, 30f);
+            mat.SetFloat(HoloCardIDs.BorderStreakScale, 54f);
+            // 은박 바탕은 등급과 무관하게 밝다 — 흔한 카드도 "은박이 약한" 게 아니라
+            // "색이 덜 어리는" 것이다. 등급으로 가르는 건 색 쪽(Chroma).
+            mat.SetFloat(HoloCardIDs.BorderSilver, 0.92f);
+            mat.SetFloat(HoloCardIDs.BorderChroma, Mathf.Lerp(1.1f, 2.6f, strength / 1.5f));
+            // 띠가 인쇄를 덮는 정도. 등급이 낮을수록 얇게 얹힌다.
+            mat.SetFloat(HoloCardIDs.BorderCover, Mathf.Lerp(0.45f, 0.92f, strength / 1.5f));
             mat.SetFloat(HoloCardIDs.BorderShift, 1.8f);
             mat.SetFloat(HoloCardIDs.BorderInset, 0.006f);
             // 띠 안쪽 경계를 세운다. 무르면 카드 이름 위까지 번져 인쇄가 씻긴다.
